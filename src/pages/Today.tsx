@@ -1,5 +1,5 @@
-import { useState, useRef, useMemo } from 'react'
-import { motion, useReducedMotion } from 'framer-motion'
+import { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
+import { motion, AnimatePresence, useReducedMotion, useMotionValue, animate } from 'framer-motion'
 import AddMealSheet from '../components/AddMealSheet'
 import {
   getTodaysMeals,
@@ -18,7 +18,6 @@ function getGreeting(): string {
   return 'Good Evening'
 }
 
-// ─── Targets (from onboarding localStorage, or safe fallback) ─────────────────
 interface MacroTargets { calories: number; protein: number; carbs: number; fat: number }
 
 function loadTargets(): MacroTargets {
@@ -32,6 +31,72 @@ function loadTargets(): MacroTargets {
   return { calories: 2180, protein: 145, carbs: 240, fat: 65 }
 }
 
+// ─── CountUp component ────────────────────────────────────────────────────────
+// Renders an animated number by writing directly to the DOM via a ref — zero
+// React re-renders during the animation. Uses Framer Motion's animate() with a
+// MotionValue so the engine handles RAF scheduling and cancellation.
+//
+// Props:
+//   locale  – format with toLocaleString() (used for the calories center number)
+//   className / style – forwarded to the rendered <span>
+interface CountUpProps {
+  target:     number
+  duration:   number
+  reduced:    boolean
+  locale?:    boolean
+  className?: string
+  style?:     React.CSSProperties
+}
+
+function CountUp({ target, duration, reduced, locale = false, className, style }: CountUpProps) {
+  const nodeRef    = useRef<HTMLSpanElement>(null)
+  const mv         = useMotionValue(target)         // seeded with initial value
+  const animRef    = useRef<{ stop(): void } | null>(null)
+  const mountedRef = useRef(false)
+
+  // Write initial text before first paint (synchronous, no flicker)
+  useLayoutEffect(() => {
+    if (nodeRef.current) {
+      nodeRef.current.textContent = locale ? target.toLocaleString() : String(target)
+    }
+  }, [])   // intentionally runs once
+
+  useEffect(() => {
+    const node = nodeRef.current
+    if (!node) return
+
+    // Skip on first run — useLayoutEffect already set the initial value
+    if (!mountedRef.current) {
+      mountedRef.current = true
+      return
+    }
+
+    animRef.current?.stop()
+
+    if (reduced) {
+      mv.set(target)
+      node.textContent = locale ? target.toLocaleString() : String(target)
+      return
+    }
+
+    animRef.current = animate(mv, target, {
+      duration: duration / 1000,
+      ease: (t: number) => 1 - Math.pow(1 - t, 3),   // cubic ease-out, matches previous hook
+      onUpdate: (v: number) => {
+        if (nodeRef.current) {
+          nodeRef.current.textContent = locale
+            ? Math.round(v).toLocaleString()
+            : String(Math.round(v))
+        }
+      },
+    })
+
+    return () => animRef.current?.stop()
+  }, [target])   // re-run only when target changes
+
+  // Empty span — textContent managed entirely via direct DOM writes above
+  return <span ref={nodeRef} className={className} style={style} />
+}
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function AvatarIcon() {
@@ -49,12 +114,7 @@ function AvatarIcon() {
 
 function HistoryIcon() {
   return (
-    <svg
-      width="20" height="20" viewBox="0 0 24 24"
-      fill="none" stroke="#9ca3af"
-      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-      aria-hidden="true"
-    >
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polyline points="1 4 1 10 7 10" />
       <path d="M3.51 15a9 9 0 1 0 .49-3.51" />
       <polyline points="12 7 12 12 15.5 14" />
@@ -108,23 +168,24 @@ function NamePrompt({ onSave }: { onSave: (n: string) => void }) {
 }
 
 // ─── Macro strip ──────────────────────────────────────────────────────────────
-// Redesign from the screenshot: Protein is the priority macro — larger number,
-// full-width progress bar. Carbs and Fat are compact and equal beside each other.
 function MacroStrip({
-  targets, consumed, dayName, mealsCount,
+  targets, consumed, dayName, mealsCount, reduced,
 }: {
   targets:    MacroTargets
   consumed:   MacroTargets
   dayName:    string
   mealsCount: number
+  reduced:    boolean
 }) {
   const pPct = Math.min((consumed.protein / targets.protein) * 100, 100)
   const cPct = Math.min((consumed.carbs   / targets.carbs)   * 100, 100)
   const fPct = Math.min((consumed.fat     / targets.fat)     * 100, 100)
 
+  // Bars animate to new width; initial={false} prevents animation on first render
+  const barT = reduced ? { duration: 0 } : { duration: 0.6, ease: 'easeOut' as const }
+
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-100">
-      {/* Green header band */}
       <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: BRAND_GREEN }}>
         <span className="text-[13px] font-semibold text-white">{dayName}</span>
         <span className="text-[12px] text-green-200">
@@ -132,51 +193,62 @@ function MacroStrip({
         </span>
       </div>
 
-      {/* Protein — full-width, dominant */}
+      {/* Protein — dominant */}
       <div className="px-4 pt-4 pb-3">
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-[13px] font-semibold text-gray-700">Protein</span>
           <div className="flex items-baseline gap-1">
-            <span className="text-[22px] font-bold leading-none" style={{ color: BRAND_GREEN }}>
-              {consumed.protein}
-            </span>
+            <CountUp target={consumed.protein} duration={600} reduced={reduced} className="text-[22px] font-bold leading-none" style={{ color: BRAND_GREEN }} />
             <span className="text-[12px] text-gray-400">/ {targets.protein}g</span>
           </div>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-          <div
+          <motion.div
             className="h-full rounded-full"
-            style={{ width: `${pPct}%`, backgroundColor: BRAND_GREEN }}
+            style={{ backgroundColor: BRAND_GREEN }}
+            initial={false}
+            animate={{ width: `${pPct}%` }}
+            transition={barT}
           />
         </div>
       </div>
 
       <div className="mx-4 h-px bg-gray-50" />
 
-      {/* Carbs + Fats — compact, supporting */}
+      {/* Carbs + Fats — supporting */}
       <div className="flex gap-5 px-4 py-3">
         <div className="flex-1">
           <div className="mb-1 flex items-baseline justify-between">
             <span className="text-[11px] font-medium text-gray-400">Carbs</span>
             <span className="text-[13px] font-semibold text-gray-700">
-              {consumed.carbs}
+              <CountUp target={consumed.carbs} duration={600} reduced={reduced} />
               <span className="ml-0.5 text-[10px] font-normal text-gray-400">/{targets.carbs}g</span>
             </span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-            <div className="h-full rounded-full bg-amber-400" style={{ width: `${cPct}%` }} />
+            <motion.div
+              className="h-full rounded-full bg-amber-400"
+              initial={false}
+              animate={{ width: `${cPct}%` }}
+              transition={barT}
+            />
           </div>
         </div>
         <div className="flex-1">
           <div className="mb-1 flex items-baseline justify-between">
             <span className="text-[11px] font-medium text-gray-400">Fats</span>
             <span className="text-[13px] font-semibold text-gray-700">
-              {consumed.fat}
+              <CountUp target={consumed.fat} duration={600} reduced={reduced} />
               <span className="ml-0.5 text-[10px] font-normal text-gray-400">/{targets.fat}g</span>
             </span>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-            <div className="h-full rounded-full bg-violet-400" style={{ width: `${fPct}%` }} />
+            <motion.div
+              className="h-full rounded-full bg-violet-400"
+              initial={false}
+              animate={{ width: `${fPct}%` }}
+              transition={barT}
+            />
           </div>
         </div>
       </div>
@@ -185,12 +257,9 @@ function MacroStrip({
 }
 
 // ─── Thali ────────────────────────────────────────────────────────────────────
-// The hero plate. Katoris (small circles) orbit the rim.
-// Filled katoris = meals logged. Empty katoris = available slots.
 const TOTAL_KATORIS = 6
 
-// Positions on a 300×300 viewbox, orbit radius ≈112px from center (150,150).
-// Angles start at the top (-90°) and step 60° clockwise.
+// Katori positions on the rim (percent offsets from the plate's top-left corner)
 const KATORI_POSITIONS = [
   { top: '13%', left: '50%' },   // top
   { top: '32%', left: '82%' },   // top-right
@@ -200,10 +269,12 @@ const KATORI_POSITIONS = [
   { top: '32%', left: '18%' },   // top-left
 ]
 
-function Thali({ remaining, goal, filledCount }: {
-  remaining:   number
-  goal:        number
-  filledCount: number
+function Thali({ remaining, goal, filledCount, newlyFilledIdx, reduced }: {
+  remaining:       number
+  goal:            number
+  filledCount:     number
+  newlyFilledIdx:  number | null   // index of the katori that just filled (for spring)
+  reduced:         boolean
 }) {
   return (
     <div className="flex justify-center">
@@ -215,25 +286,68 @@ function Thali({ remaining, goal, filledCount }: {
           boxShadow: '0 0 72px 28px rgba(28,124,46,0.07)',
         }}
       >
-        {/* Katoris orbiting the rim */}
-        {KATORI_POSITIONS.map((pos, i) => (
-          <div
-            key={i}
-            className="absolute h-12 w-12 rounded-full"
-            style={{
-              top: pos.top, left: pos.left,
-              transform: 'translate(-50%, -50%)',
-              ...(i < filledCount
-                ? { backgroundColor: 'rgba(28,124,46,0.14)' }
-                : { border: '1.5px dashed rgba(28,124,46,0.25)' }),
-            }}
+        {/* Ambient glow — opacity-only loop, GPU-accelerated, barely visible */}
+        {!reduced && (
+          <motion.div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 rounded-full"
+            style={{ background: 'radial-gradient(circle, rgba(28,124,46,0.07) 0%, transparent 65%)' }}
+            animate={{ opacity: [0.45, 1, 0.45] }}
+            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
           />
-        ))}
+        )}
 
-        {/* Center display */}
+        {/* Katoris — outer div handles position, inner motion.div handles animation.
+            Keeping them separate prevents Framer Motion's transform from conflicting
+            with the translate(-50%,-50%) centering. */}
+        {KATORI_POSITIONS.map((pos, i) => {
+          const isFilled      = i < filledCount
+          const isNewlyFilled = i === newlyFilledIdx          // just-logged, any motion pref
+          const isNew         = isNewlyFilled && !reduced     // use spring (full motion)
+
+          // Reduced-motion variant: opacity cross-fade instead of scale spring,
+          // so the user still gets visual confirmation without any movement.
+          const kInit = isNewlyFilled && reduced ? { opacity: 0 }
+                      : isNew                   ? { scale: 0, opacity: 0 }
+                      : false as const
+          const kTransition = isNewlyFilled && reduced ? { duration: 0.15, ease: 'easeOut' as const }
+                            : isNew                   ? { type: 'spring' as const, stiffness: 300, damping: 20 }
+                            : { duration: 0 }
+
+          return (
+            <div
+              key={i}
+              className="absolute"
+              style={{ top: pos.top, left: pos.left, transform: 'translate(-50%,-50%)' }}
+            >
+              <AnimatePresence mode="wait">
+                {isFilled ? (
+                  <motion.div
+                    key="filled"
+                    className="h-12 w-12 rounded-full"
+                    style={{ backgroundColor: 'rgba(28,124,46,0.14)' }}
+                    initial={kInit}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={kTransition}
+                  />
+                ) : (
+                  <motion.div
+                    key="empty"
+                    className="h-12 w-12 rounded-full"
+                    style={{ border: '1.5px dashed rgba(28,124,46,0.25)' }}
+                    initial={false}
+                    animate={{ opacity: 1 }}
+                  />
+                )}
+              </AnimatePresence>
+            </div>
+          )
+        })}
+
+        {/* Center: calorie count-down */}
         <div className="z-10 flex flex-col items-center">
           <p className="text-[42px] font-bold leading-none tracking-tight text-gray-900">
-            {remaining.toLocaleString()}
+            <CountUp target={remaining} duration={600} reduced={reduced} locale />
             <span className="ml-1.5 text-[18px] font-medium text-gray-400">cal</span>
           </p>
           <p className="mt-2 text-[13px] text-gray-400">
@@ -249,10 +363,7 @@ function Thali({ remaining, goal, filledCount }: {
 function MealRow({ meal }: { meal: LoggedMeal }) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3.5">
-      <div
-        className="h-9 w-9 flex-shrink-0 rounded-xl"
-        style={{ backgroundColor: 'rgba(28,124,46,0.09)' }}
-      />
+      <div className="h-9 w-9 flex-shrink-0 rounded-xl" style={{ backgroundColor: 'rgba(28,124,46,0.09)' }} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-semibold text-gray-800">{meal.name}</p>
         <p className="mt-0.5 text-[12px] text-gray-400">{formatMealTime(meal.timestamp)}</p>
@@ -269,22 +380,19 @@ function MealRow({ meal }: { meal: LoggedMeal }) {
 function EmptyMeals() {
   return (
     <div className="flex flex-col items-center py-10 text-center">
-      <div
-        className="mb-4 h-12 w-12 rounded-full"
-        style={{ border: '2px dashed rgba(28,124,46,0.28)' }}
-      />
+      <div className="mb-4 h-12 w-12 rounded-full" style={{ border: '2px dashed rgba(28,124,46,0.28)' }} />
       <p className="text-[14px] font-medium text-gray-500">Nothing here yet</p>
       <p className="mt-1 text-[13px] text-gray-400">Your first meal will appear here</p>
     </div>
   )
 }
 
-// ─── Animation helper ─────────────────────────────────────────────────────────
+// ─── Mount entrance helper ────────────────────────────────────────────────────
 function fadeUp(delay: number, reduced: boolean) {
   return {
-    initial:    reduced ? false : { opacity: 0, y: 12 },
+    initial:    reduced ? false as const : { opacity: 0, y: 10 },
     animate:    { opacity: 1, y: 0 },
-    transition: { delay, duration: 0.4, ease: 'easeOut' },
+    transition: { delay, duration: 0.35, ease: 'easeOut' as const },
   }
 }
 
@@ -295,25 +403,37 @@ export default function Today() {
   const dayName        = WEEKDAYS[new Date().getDay()]
   const greeting       = getGreeting()
 
-  const [name, setName]         = useState<string | null>(
-    () => localStorage.getItem('disc_name'),
-  )
-  const [sheetOpen, setSheetOpen]   = useState(false)
-  // Incremented by handleMealLogged → invalidates the useMemo below → fresh
-  // localStorage read → React re-renders all dependent UI in the same tick.
-  const [mealVersion, setMealVersion] = useState(0)
+  const [name,          setName]          = useState<string | null>(() => localStorage.getItem('disc_name'))
+  const [sheetOpen,     setSheetOpen]     = useState(false)
+  const [mealVersion,   setMealVersion]   = useState(0)
+  // Which katori index just filled — drives the spring animation
+  const [newKatoriIdx,  setNewKatoriIdx]  = useState<number | null>(null)
 
   const handleSetName = (n: string) => {
     localStorage.setItem('disc_name', n)
     setName(n)
   }
 
-  const handleMealLogged = () => setMealVersion(v => v + 1)
-
-  // Re-reads the store every time mealVersion increments (i.e. after each log).
-  const meals    = useMemo(() => getTodaysMeals(), [mealVersion])
-  const consumed = sumMacros(meals)
+  const meals     = useMemo(() => getTodaysMeals(), [mealVersion])
+  const consumed  = sumMacros(meals)
   const remaining = Math.max(0, targets.calories - consumed.calories)
+
+  // Called by AddMealSheet ~350ms after "Log it" is tapped (after sheet mostly exits)
+  const handleMealLogged = () => {
+    const newIdx = meals.length   // current count = 0-based index of the new katori
+
+    // Short haptic pulse when the katori physically "lands"
+    if (!prefersReduced && typeof navigator.vibrate === 'function') {
+      try { navigator.vibrate(12) } catch {}
+    }
+
+    if (newIdx < TOTAL_KATORIS) {
+      setNewKatoriIdx(newIdx)
+      setTimeout(() => setNewKatoriIdx(null), 700)   // clear after spring settles
+    }
+
+    setMealVersion(v => v + 1)
+  }
 
   return (
     <motion.div
@@ -323,10 +443,11 @@ export default function Today() {
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
     >
-      {/* ── Header ── */}
-      <div
+      {/* Header */}
+      <motion.div
         className="flex flex-shrink-0 items-center justify-between px-5 pb-4"
         style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 20px)' }}
+        {...fadeUp(0, prefersReduced)}
       >
         <div className="flex items-center gap-3">
           <AvatarIcon />
@@ -341,57 +462,61 @@ export default function Today() {
             )}
           </div>
         </div>
-        <button
-          type="button"
-          aria-label="View history"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50"
-        >
+        <button type="button" aria-label="View history" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50">
           <HistoryIcon />
         </button>
-      </div>
+      </motion.div>
 
-      {/* ── Scrollable content ── */}
+      {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
-
-        {/* Name prompt — only shown once, before any name is stored */}
         {!name && <NamePrompt onSave={handleSetName} />}
 
         <div className="flex flex-col gap-6 px-5 pb-4">
 
-          {/* Macro strip */}
-          <motion.div {...fadeUp(0.05, prefersReduced)}>
+          {/* Macro strip — staggered entrance */}
+          <motion.div {...fadeUp(0.06, prefersReduced)}>
             <MacroStrip
               targets={targets}
               consumed={consumed}
               dayName={dayName}
               mealsCount={meals.length}
+              reduced={prefersReduced}
             />
           </motion.div>
 
-          {/* Thali */}
-          <motion.div {...fadeUp(0.15, prefersReduced)}>
+          {/* Thali plate */}
+          <motion.div {...fadeUp(0.14, prefersReduced)}>
             <Thali
               remaining={remaining}
               goal={targets.calories}
               filledCount={Math.min(meals.length, TOTAL_KATORIS)}
+              newlyFilledIdx={newKatoriIdx}
+              reduced={prefersReduced}
             />
           </motion.div>
 
-          {/* Recent Meals */}
-          <motion.div {...fadeUp(0.25, prefersReduced)}>
+          {/* Recent meals */}
+          <motion.div {...fadeUp(0.22, prefersReduced)}>
             <p className="mb-3 text-[16px] font-bold" style={{ color: BRAND_GREEN }}>
               Recent Meals
             </p>
             {meals.length > 0 ? (
               <div className="flex flex-col gap-2.5">
-                {meals.map((meal, i) => (
-                  <motion.div
-                    key={meal.id}
-                    {...fadeUp(0.3 + i * 0.07, prefersReduced)}
-                  >
-                    <MealRow meal={meal} />
-                  </motion.div>
-                ))}
+                {/* initial={false} → suppress entrance for existing rows on mount;
+                    new rows (new key) still animate in */}
+                <AnimatePresence initial={false}>
+                  {meals.map(meal => (
+                    <motion.div
+                      key={meal.id}
+                      initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6, transition: { duration: 0.2 } }}
+                      transition={{ duration: 0.28, ease: 'easeOut' }}
+                    >
+                      <MealRow meal={meal} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
               </div>
             ) : (
               <EmptyMeals />
@@ -401,7 +526,7 @@ export default function Today() {
         </div>
       </div>
 
-      {/* ── Add a meal ── */}
+      {/* Add a meal */}
       <div className="flex-shrink-0 px-5 pb-10 pt-2">
         <button
           type="button"
@@ -413,7 +538,6 @@ export default function Today() {
         </button>
       </div>
 
-      {/* ── Add Meal Sheet — rendered outside scroll container so z-index works ── */}
       <AddMealSheet
         isOpen={sheetOpen}
         onClose={() => setSheetOpen(false)}

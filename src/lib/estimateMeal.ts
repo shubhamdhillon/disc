@@ -14,6 +14,7 @@
  */
 
 import { GoogleGenAI, Type } from '@google/genai'
+import { logEstimateEntry } from './estimateLog'
 
 const TAG = '[estimateMeal]'
 
@@ -41,11 +42,13 @@ export type EstimateErrorCode =
   | 'API_ERROR'             // any other non-2xx error
 
 export class EstimateError extends Error {
-  readonly code: EstimateErrorCode
-  constructor(code: EstimateErrorCode, detail: string) {
+  readonly code:       EstimateErrorCode
+  readonly httpStatus: number | null
+  constructor(code: EstimateErrorCode, detail: string, httpStatus: number | null = null) {
     super(detail)
-    this.name = 'EstimateError'
-    this.code = code
+    this.name       = 'EstimateError'
+    this.code       = code
+    this.httpStatus = httpStatus
   }
 }
 
@@ -144,19 +147,19 @@ function buildApiError(err: unknown): EstimateError {
     const { code, status, message: apiMsg } = parsed.error
 
     if (code === 401 || code === 403 || status === 'UNAUTHENTICATED' || status === 'PERMISSION_DENIED') {
-      console.error(`${TAG} AUTH_FAILURE code=${code} status=${status}`)
-      return new EstimateError('AUTH_FAILURE', apiMsg)
+      console.error(`${TAG} AUTH_FAILURE http=${code} status=${status}`)
+      return new EstimateError('AUTH_FAILURE', apiMsg, code)
     }
     if (code === 429 || status === 'RESOURCE_EXHAUSTED') {
-      console.error(`${TAG} RATE_LIMITED code=${code}`)
-      return new EstimateError('RATE_LIMITED', apiMsg)
+      console.error(`${TAG} RATE_LIMITED http=${code}`)
+      return new EstimateError('RATE_LIMITED', apiMsg, code)
     }
     if (code === 404 && (apiMsg.includes('no longer available') || apiMsg.includes('models/'))) {
-      console.warn(`${TAG} MODEL_NOT_AVAILABLE — ${apiMsg}`)
-      return new EstimateError('MODEL_NOT_AVAILABLE', apiMsg)
+      console.warn(`${TAG} MODEL_NOT_AVAILABLE http=${code} — ${apiMsg}`)
+      return new EstimateError('MODEL_NOT_AVAILABLE', apiMsg, code)
     }
-    console.error(`${TAG} API_ERROR code=${code} status=${status} —`, apiMsg)
-    return new EstimateError('API_ERROR', `API error (${code}): ${apiMsg}`)
+    console.error(`${TAG} API_ERROR http=${code} status=${status} —`, apiMsg)
+    return new EstimateError('API_ERROR', `API error (${code}): ${apiMsg}`, code)
   } catch { /* message was not JSON */ }
 
   console.error(`${TAG} API_ERROR (unclassified) —`, err)
@@ -204,10 +207,15 @@ function parseResponse(raw: string): EstimateResult {
 export async function estimateMeal(
   input: string | ImageInput,
 ): Promise<EstimateResult> {
+  // t0 is used to compute elapsedMs for every failure entry in the dev log
+  const t0 = performance.now()
+
   const apiKey = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim()
   if (!apiKey) {
     console.error(`${TAG} NO_API_KEY — VITE_GEMINI_API_KEY is not set in .env`)
-    throw new EstimateError('NO_API_KEY', 'VITE_GEMINI_API_KEY is not set')
+    const err = new EstimateError('NO_API_KEY', 'VITE_GEMINI_API_KEY is not set')
+    if (import.meta.env.DEV) logEstimateEntry({ ts: Date.now(), code: 'NO_API_KEY', httpStatus: null, elapsedMs: 0, model: '—', detail: err.message })
+    throw err
   }
 
   const ai = new GoogleGenAI({ apiKey })
@@ -245,6 +253,18 @@ export async function estimateMeal(
       )
     } catch (err) {
       const apiErr = buildApiError(err)
+      // Log every network/API/timeout failure with http status and elapsed time.
+      // This makes it possible to distinguish e.g. a 429 from a genuine timeout.
+      if (import.meta.env.DEV) {
+        logEstimateEntry({
+          ts:         Date.now(),
+          code:       apiErr.code,
+          httpStatus: apiErr.httpStatus,
+          elapsedMs:  Math.round(performance.now() - t0),
+          model,
+          detail:     apiErr.message.slice(0, 120),
+        })
+      }
       if (apiErr.code === 'MODEL_NOT_AVAILABLE') {
         lastErr = apiErr
         const next = MODELS[MODELS.indexOf(model) + 1]
@@ -261,15 +281,43 @@ export async function estimateMeal(
     )
 
     if (!text) {
+      let emptyErr: EstimateError
       if (finishReason === 'SAFETY') {
         console.error(`${TAG} SAFETY_BLOCK — content filtered by safety system`)
-        throw new EstimateError('SAFETY_BLOCK', 'Response blocked by safety filters')
+        emptyErr = new EstimateError('SAFETY_BLOCK', 'Response blocked by safety filters')
+      } else {
+        console.error(`${TAG} EMPTY_RESPONSE finishReason=${finishReason}`, response)
+        emptyErr = new EstimateError('EMPTY_RESPONSE', `Empty response (finishReason: ${finishReason})`)
       }
-      console.error(`${TAG} EMPTY_RESPONSE finishReason=${finishReason}`, response)
-      throw new EstimateError('EMPTY_RESPONSE', `Empty response (finishReason: ${finishReason})`)
+      if (import.meta.env.DEV) {
+        logEstimateEntry({
+          ts:         Date.now(),
+          code:       emptyErr.code,
+          httpStatus: null,
+          elapsedMs:  Math.round(performance.now() - t0),
+          model,
+          detail:     emptyErr.message,
+        })
+      }
+      throw emptyErr
     }
 
-    return parseResponse(text)
+    // parseResponse can throw PARSE_FAILED — catch it to log before re-throwing
+    try {
+      return parseResponse(text)
+    } catch (parseErr) {
+      if (import.meta.env.DEV && parseErr instanceof EstimateError) {
+        logEstimateEntry({
+          ts:         Date.now(),
+          code:       parseErr.code,
+          httpStatus: null,
+          elapsedMs:  Math.round(performance.now() - t0),
+          model,
+          detail:     parseErr.message.slice(0, 120),
+        })
+      }
+      throw parseErr
+    }
   }
 
   console.error(`${TAG} MODEL_NOT_AVAILABLE — all models exhausted: [${MODELS.join(', ')}]`)
