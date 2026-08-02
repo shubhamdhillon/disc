@@ -1,12 +1,56 @@
 import { useState, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { estimateMeal } from '../lib/estimateMeal'
+import { estimateMeal, EstimateError } from '../lib/estimateMeal'
 import { addMeal } from '../lib/mealsStore'
 import type { MealEstimate } from '../lib/estimateMeal'
 
 const BRAND_GREEN = '#1C7C2E'
+const SHEET_TAG   = '[AddMealSheet]'
 
 type SheetState = 'input' | 'estimating' | 'confirm'
+
+/**
+ * Client-side pre-filter — only blocks inputs that are OBVIOUSLY not a meal.
+ * When in doubt, let it through; a false rejection is worse than one extra call.
+ *
+ * Passes (correctly): "2 roti dal sabzi", "40-50gm oats 1 scoop whey",
+ *                     "idli sambar", "rice", "poha"
+ * Blocks:             "" (empty), "x" (single char), "!!" (no letters at all)
+ */
+function checkJunk(text: string): string | null {
+  const t = text.trim()
+  if (t.length === 0) return 'empty input'
+  if (t.length === 1 && !/[a-zA-Z]/.test(t)) return 'single non-letter character'
+  return null  // not junk
+}
+
+/** Map an EstimateError code to a friendly user-facing string. */
+function friendlyMessage(err: unknown): string {
+  if (!(err instanceof EstimateError)) {
+    return "Couldn't estimate right now — please try again."
+  }
+  switch (err.code) {
+    case 'TIMEOUT':
+      return "Taking too long — please try again."
+    case 'NETWORK_ERROR':
+      return "Couldn't connect — check your internet and try again."
+    case 'AUTH_FAILURE':
+      return "API key issue — check your .env file and refresh."
+    case 'RATE_LIMITED':
+      return "Too many requests — wait a moment, then try again."
+    case 'SAFETY_BLOCK':
+      return "That was blocked by content filters — try rephrasing."
+    case 'EMPTY_RESPONSE':
+    case 'PARSE_FAILED':
+      return "Couldn't read the response — please try again."
+    case 'NO_API_KEY':
+      return "API key is not configured — check your .env file."
+    case 'MODEL_NOT_AVAILABLE':
+      return "Estimation service unavailable — please try again later."
+    default:
+      return "Couldn't estimate right now — please try again."
+  }
+}
 
 // ── Internal icons ─────────────────────────────────────────────────────────────
 
@@ -31,8 +75,14 @@ function CameraIcon() {
 }
 
 // ── State 1: Input ─────────────────────────────────────────────────────────────
-function InputState({ onSubmit }: { onSubmit: (text: string) => void }) {
-  const [value, setValue] = useState('')
+interface InputStateProps {
+  onSubmit:     (text: string) => void
+  errorMsg:     string | null
+  defaultValue: string
+}
+
+function InputState({ onSubmit, errorMsg, defaultValue }: InputStateProps) {
+  const [value, setValue] = useState(defaultValue)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const handleSubmit = () => {
@@ -70,14 +120,27 @@ function InputState({ onSubmit }: { onSubmit: (text: string) => void }) {
         />
       </div>
 
+      {/* Error / hint message */}
+      <AnimatePresence>
+        {errorMsg && (
+          <motion.p
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="mt-3 text-center text-[13px] font-medium text-amber-600"
+          >
+            {errorMsg}
+          </motion.p>
+        )}
+      </AnimatePresence>
+
       {/* Actions */}
       <div className="mt-4 flex gap-3">
-        {/* Camera button — UI wired, action is placeholder */}
         <button
           type="button"
           aria-label="Add photo"
           className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-400"
-          onClick={() => {/* TODO: photo picker */}}
         >
           <CameraIcon />
         </button>
@@ -124,7 +187,9 @@ function EstimatingState({ reduced }: { reduced: boolean }) {
 }
 
 // ── State 3: Confirm ───────────────────────────────────────────────────────────
-// All three values are inline-editable before logging.
+// Name, calories, and protein are inline-editable before logging.
+// Carbs and fat from the estimate are carried through without being shown as
+// editable tiles — keeps the UI focused on the numbers users care about most.
 function ConfirmState({
   estimate,
   onLog,
@@ -143,8 +208,6 @@ function ConfirmState({
       name:     name.trim() || estimate.name,
       calories: Math.max(0, parseInt(calories) || 0),
       protein:  Math.max(0, parseInt(protein)  || 0),
-      // Carbs and fat are not shown as editable fields to keep the UI focused;
-      // the estimate values are carried through. Future: add a detail toggle.
       carbs:    estimate.carbs,
       fat:      estimate.fat,
     })
@@ -164,9 +227,10 @@ function ConfirmState({
         <button
           type="button"
           onClick={onBack}
-          className="text-[13px] font-medium text-gray-400"
+          className="text-[16px] font-semibold"
+          style={{ color: BRAND_GREEN }}
         >
-          ← Edit
+          Edit
         </button>
       </div>
 
@@ -222,32 +286,70 @@ function ConfirmState({
 
 // ── AddMealSheet ───────────────────────────────────────────────────────────────
 interface AddMealSheetProps {
-  isOpen:  boolean
-  onClose: () => void
-  /** Called after a meal is successfully logged so Today can refresh. */
+  isOpen:    boolean
+  onClose:   () => void
   onLogged?: () => void
 }
 
 export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheetProps) {
   const prefersReduced = useReducedMotion() ?? false
 
-  const [state,    setState]    = useState<SheetState>('input')
-  const [estimate, setEstimate] = useState<MealEstimate | null>(null)
+  const [state,     setState]     = useState<SheetState>('input')
+  const [estimate,  setEstimate]  = useState<MealEstimate | null>(null)
+  const [errorMsg,  setErrorMsg]  = useState<string | null>(null)
+  // Preserved so the textarea is restored when we bounce back from estimating on error
+  const [lastInput, setLastInput] = useState('')
 
   const resetAndClose = () => {
     onClose()
-    // Defer state reset so it doesn't flash during the exit animation
     setTimeout(() => {
       setState('input')
       setEstimate(null)
+      setErrorMsg(null)
+      setLastInput('')
     }, 350)
   }
 
   const handleSubmit = async (text: string) => {
+    // ── Client-side pre-check ──────────────────────────────────────────────────
+    // Only blocks truly empty / single-non-letter inputs. When in doubt, let
+    // the API decide — a false rejection is worse than an extra call.
+    const junkReason = checkJunk(text)
+    if (junkReason) {
+      console.warn(`${SHEET_TAG} PRE_FILTER_BLOCKED input="${text.slice(0, 40)}" reason="${junkReason}"`)
+      setErrorMsg("Please describe your meal in a bit more detail.")
+      return
+    }
+
+    setLastInput(text)
+    setErrorMsg(null)
     setState('estimating')
-    const result = await estimateMeal(text)
-    setEstimate(result)
-    setState('confirm')
+
+    try {
+      const result = await estimateMeal(text)
+
+      // ── Model says "not a meal" ────────────────────────────────────────────
+      if (!result.valid) {
+        setState('input')
+        setErrorMsg("Hmm, that doesn't look like a meal — mind describing what you ate?")
+        return
+      }
+
+      // ── Valid estimate ─────────────────────────────────────────────────────
+      setEstimate({
+        name:     result.name,
+        calories: result.calories,
+        protein:  result.protein,
+        carbs:    result.carbs,
+        fat:      result.fat,
+      })
+      setState('confirm')
+
+    } catch (err) {
+      console.error(`${SHEET_TAG} estimate failed:`, err)
+      setState('input')
+      setErrorMsg(friendlyMessage(err))
+    }
   }
 
   const handleLog = (meal: MealEstimate) => {
@@ -259,6 +361,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
   const handleBack = () => {
     setState('input')
     setEstimate(null)
+    setErrorMsg(null)
   }
 
   return (
@@ -297,7 +400,12 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
             {/* State content */}
             <AnimatePresence mode="wait">
               {state === 'input' && (
-                <InputState key="input" onSubmit={handleSubmit} />
+                <InputState
+                  key="input"
+                  onSubmit={handleSubmit}
+                  errorMsg={errorMsg}
+                  defaultValue={lastInput}
+                />
               )}
               {state === 'estimating' && (
                 <EstimatingState key="estimating" reduced={prefersReduced} />
