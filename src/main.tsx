@@ -12,6 +12,9 @@ if (import.meta.env.DEV) {
   if (new URLSearchParams(window.location.search).has('reset')) {
     sessionStorage.removeItem('disc_splash')
     localStorage.removeItem('disc_intro_seen')
+    localStorage.removeItem('disc_targets')
+    localStorage.removeItem('disc_name')
+    localStorage.removeItem('disc_meals')
     window.history.replaceState({}, '', window.location.pathname)
   }
 

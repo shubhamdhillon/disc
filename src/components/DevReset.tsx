@@ -6,9 +6,16 @@ export default function DevReset() {
   if (!import.meta.env.DEV) return null
 
   const handleReset = () => {
-    sessionStorage.removeItem('disc_splash')   // resets splash animation mode
-    localStorage.removeItem('disc_intro_seen') // resets intro skip logic
-    window.location.replace('/')               // hard reload → clean state
+    // Session flags
+    sessionStorage.removeItem('disc_splash')
+
+    // All localStorage keys written by this app
+    localStorage.removeItem('disc_intro_seen')
+    localStorage.removeItem('disc_targets')
+    localStorage.removeItem('disc_name')
+    localStorage.removeItem('disc_meals')
+
+    window.location.replace('/')
   }
 
   return (
