@@ -50,18 +50,18 @@ export default function OnboardingIntro() {
         {/* Card — hard offset shadow (no blur), light grey border */}
         <motion.div
           className="w-full rounded-2xl border border-gray-200 bg-white px-6 py-5"
-          style={{ boxShadow: '4px 4px 0 0 rgba(0,0,0,0.13)' }}
+          style={{ boxShadow: '4px 4px 0 0 #000000' }}
           initial={prefersReduced ? false : { opacity: 0, y: 18 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.24, duration: 0.45, ease: 'easeOut' }}
         >
           <h2
-            className="m-0 text-[20px] font-bold leading-snug"
+            className="m-0 text-center text-[20px] font-bold leading-snug"
             style={{ color: '#1c1c1e' }}
           >
             Let's get to know you!
           </h2>
-          <p className="mb-0 mt-2.5 text-[14px] leading-relaxed text-gray-500">
+          <p className="mb-0 mt-2.5 text-center text-[14px] leading-relaxed text-gray-500">
             Just a few questions to help us personalise this for you.
           </p>
         </motion.div>

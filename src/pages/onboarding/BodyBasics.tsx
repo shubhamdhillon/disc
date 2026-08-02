@@ -31,9 +31,9 @@ const DEFAULT_WEIGHT_IDX = 80   // 30 + 80×0.5 = 70.0
 function ProgressBar({ current, total }: { current: number; total: number }) {
   const pct = (current / total) * 100
   return (
-    <div className="relative h-6 w-full">
+    <div className="relative h-12 w-full">
       {/* Track */}
-      <div className="absolute inset-x-0 top-1/2 h-[5px] -translate-y-1/2 overflow-hidden rounded-full bg-gray-100">
+      <div className="absolute inset-x-0 top-1/2 h-[10px] -translate-y-1/2 overflow-hidden rounded-full bg-gray-100">
         <div
           className="h-full rounded-full"
           style={{ width: `${pct}%`, backgroundColor: BRAND_GREEN }}
@@ -41,7 +41,7 @@ function ProgressBar({ current, total }: { current: number; total: number }) {
       </div>
       {/* Pill — centered on the filled/unfilled boundary */}
       <div
-        className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2 py-[3px] text-[10px] font-bold text-white"
+        className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full px-2 py-[2px] text-[12px] font-bold text-white"
         style={{
           backgroundColor: BRAND_GREEN,
           left: `clamp(18px, ${pct}%, calc(100% - 18px))`,
@@ -113,17 +113,19 @@ export default function BodyBasics() {
   const [heightIdx, setHeightIdx] = useState(DEFAULT_HEIGHT_IDX)
   const [weightIdx, setWeightIdx] = useState(DEFAULT_WEIGHT_IDX)
 
+  const canContinue = gender !== null
+
   const handleContinue = () => {
+    if (!canContinue) return
     update({
       gender,
-      birthDay:   DAYS[dayIdx]      as number,
+      birthDay:   DAYS[dayIdx]       as number,
       birthMonth: monthIdx + 1,
-      birthYear:  YEARS[yearIdx]    as number,
+      birthYear:  YEARS[yearIdx]     as number,
       heightCm:   HEIGHTS[heightIdx] as number,
       weightKg:   parseFloat(WEIGHTS[weightIdx]),
     })
-    // TODO: swap '/today' for the next onboarding route when screen 2 is built
-    navigate('/today')
+    navigate('/onboarding/work-day')
   }
 
   return (
@@ -135,7 +137,7 @@ export default function BodyBasics() {
       transition={{ duration: 0.35, ease: 'easeOut' }}
     >
       {/* ── Header ── */}
-      <div className="flex-shrink-0 px-5 pt-12 pb-3">
+      <div className="flex-shrink-0 px-5 pt-6 pb-3">
         <ProgressBar current={1} total={9} />
         <h1
           className="mt-5 text-[24px] font-bold leading-tight"
@@ -182,7 +184,6 @@ export default function BodyBasics() {
             <SectionLabel>Height(cm)</SectionLabel>
             <PickerBox>
               <div className="w-full">
-                {/* label="" hides the internal column label — the section label above is used instead */}
                 <WheelPicker values={HEIGHTS} defaultIndex={DEFAULT_HEIGHT_IDX} onChange={setHeightIdx} label="" />
               </div>
             </PickerBox>
@@ -204,7 +205,8 @@ export default function BodyBasics() {
         <button
           type="button"
           onClick={handleContinue}
-          className="h-14 w-full rounded-2xl text-[17px] font-semibold tracking-wide text-white"
+          disabled={!canContinue}
+          className="h-14 w-full rounded-2xl text-[17px] font-semibold tracking-wide text-white transition-opacity disabled:opacity-40"
           style={{ backgroundColor: BRAND_GREEN }}
         >
           Continue

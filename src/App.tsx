@@ -5,6 +5,15 @@ import Splash          from './pages/Splash'
 import Intro           from './pages/Intro'
 import OnboardingIntro from './pages/OnboardingIntro'
 import BodyBasics      from './pages/onboarding/BodyBasics'
+import WorkDay           from './pages/onboarding/WorkDay'
+import Steps             from './pages/onboarding/Steps'
+import WorkoutFrequency  from './pages/onboarding/WorkoutFrequency'
+import WorkoutType       from './pages/onboarding/WorkoutType'
+import WorkoutLength     from './pages/onboarding/WorkoutLength'
+import Goal              from './pages/onboarding/Goal'
+import DietPreference    from './pages/onboarding/DietPreference'
+import FoodPrep          from './pages/onboarding/FoodPrep'
+import Results           from './pages/onboarding/Results'
 import Today           from './pages/Today'
 import AddMeal         from './pages/AddMeal'
 import DevReset        from './components/DevReset'
@@ -21,6 +30,15 @@ function AnimatedRoutes() {
         <Route path="/onboarding"             element={<OnboardingIntro />} />
         {/* /onboarding/body-basics is question screen 1 of 9 */}
         <Route path="/onboarding/body-basics" element={<BodyBasics />} />
+        <Route path="/onboarding/work-day"   element={<WorkDay />} />
+        <Route path="/onboarding/steps"             element={<Steps />} />
+        <Route path="/onboarding/workout-frequency" element={<WorkoutFrequency />} />
+        <Route path="/onboarding/workout-type"      element={<WorkoutType />} />
+        <Route path="/onboarding/workout-length"    element={<WorkoutLength />} />
+        <Route path="/onboarding/goal"              element={<Goal />} />
+        <Route path="/onboarding/diet-preference"   element={<DietPreference />} />
+        <Route path="/onboarding/food-prep"         element={<FoodPrep />} />
+        <Route path="/onboarding/results"           element={<Results />} />
         <Route path="/today"                  element={<Today />} />
         <Route path="/add-meal"               element={<AddMeal />} />
       </Routes>
