@@ -236,7 +236,7 @@ export async function estimateMeal(
   const config = {
     systemInstruction:  SYSTEM_PROMPT,
     temperature:        0.1,
-    maxOutputTokens:    512,
+    maxOutputTokens:    1024,
     responseMimeType:   'application/json',
     responseJsonSchema: RESPONSE_SCHEMA,
   }
@@ -274,11 +274,23 @@ export async function estimateMeal(
       throw apiErr
     }
 
-    const text = response.text ?? ''
+    const text         = response.text ?? ''
     const finishReason = String(
       (response as { candidates?: Array<{ finishReason?: string }> })
         .candidates?.[0]?.finishReason ?? 'UNKNOWN',
     )
+    const usage = (response as {
+      usageMetadata?: { candidatesTokenCount?: number; promptTokenCount?: number }
+    }).usageMetadata
+
+    // Diagnostic prefix shared by every PARSE_FAILED log entry for this response.
+    // "finish=MAX_TOKENS tokens=41/1024" — lets us see if truncation caused the error.
+    const parseDiag = [
+      `finish=${finishReason}`,
+      usage?.candidatesTokenCount !== undefined
+        ? `tokens=${usage.candidatesTokenCount}/1024`
+        : null,
+    ].filter(Boolean).join(' ')
 
     if (!text) {
       let emptyErr: EstimateError
@@ -302,7 +314,26 @@ export async function estimateMeal(
       throw emptyErr
     }
 
-    // parseResponse can throw PARSE_FAILED — catch it to log before re-throwing
+    // Non-STOP finish with text means the response was cut off (e.g. MAX_TOKENS).
+    // Skip the parser — it will fail on truncated JSON — and throw directly.
+    if (finishReason !== 'STOP') {
+      const detail = `${parseDiag} — Not valid JSON — raw: ${text.slice(0, 200)}`
+      console.error(`${TAG} PARSE_FAILED finishReason=${finishReason}`, text.slice(0, 200))
+      const truncErr = new EstimateError('PARSE_FAILED', detail)
+      if (import.meta.env.DEV) {
+        logEstimateEntry({
+          ts:         Date.now(),
+          code:       'PARSE_FAILED',
+          httpStatus: null,
+          elapsedMs:  Math.round(performance.now() - t0),
+          model,
+          detail,
+        })
+      }
+      throw truncErr
+    }
+
+    // finishReason === 'STOP' — attempt to parse, log if it still fails
     try {
       return parseResponse(text)
     } catch (parseErr) {
@@ -313,7 +344,9 @@ export async function estimateMeal(
           httpStatus: null,
           elapsedMs:  Math.round(performance.now() - t0),
           model,
-          detail:     parseErr.message.slice(0, 120),
+          detail:     parseErr.code === 'PARSE_FAILED'
+                        ? `${parseDiag} — Not valid JSON — raw: ${text.slice(0, 200)}`
+                        : parseErr.message.slice(0, 120),
         })
       }
       throw parseErr

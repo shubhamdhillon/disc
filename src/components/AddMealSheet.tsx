@@ -24,32 +24,35 @@ function checkJunk(text: string): string | null {
   return null  // not junk
 }
 
-/** Map an EstimateError code to a friendly user-facing string. */
-function friendlyMessage(err: unknown): string {
+/** Map an EstimateError code to a friendly user-facing string.
+ *  In DEV, appends a diagnostic tag so the raw error is visible on-device
+ *  without opening devtools: "[RATE_LIMITED · http 429 · 1234ms]".
+ *  The production message is always the plain human string.
+ */
+function friendlyMessage(err: unknown, elapsedMs?: number): string {
   if (!(err instanceof EstimateError)) {
     return "Couldn't estimate right now — please try again."
   }
+  let base: string
   switch (err.code) {
-    case 'TIMEOUT':
-      return "Taking too long — please try again."
-    case 'NETWORK_ERROR':
-      return "Couldn't connect — check your internet and try again."
-    case 'AUTH_FAILURE':
-      return "API key issue — check your .env file and refresh."
-    case 'RATE_LIMITED':
-      return "Too many requests — wait a moment, then try again."
-    case 'SAFETY_BLOCK':
-      return "That was blocked by content filters — try rephrasing."
+    case 'TIMEOUT':             base = "Taking too long — please try again."; break
+    case 'NETWORK_ERROR':       base = "Couldn't connect — check your internet and try again."; break
+    case 'AUTH_FAILURE':        base = "API key issue — check your .env file and refresh."; break
+    case 'RATE_LIMITED':        base = "Too many requests — wait a moment, then try again."; break
+    case 'SAFETY_BLOCK':        base = "That was blocked by content filters — try rephrasing."; break
     case 'EMPTY_RESPONSE':
-    case 'PARSE_FAILED':
-      return "Couldn't read the response — please try again."
-    case 'NO_API_KEY':
-      return "API key is not configured — check your .env file."
-    case 'MODEL_NOT_AVAILABLE':
-      return "Estimation service unavailable — please try again later."
-    default:
-      return "Couldn't estimate right now — please try again."
+    case 'PARSE_FAILED':        base = "Couldn't read the response — please try again."; break
+    case 'NO_API_KEY':          base = "API key is not configured — check your .env file."; break
+    case 'MODEL_NOT_AVAILABLE': base = "Estimation service unavailable — please try again later."; break
+    default:                    base = "Couldn't estimate right now — please try again."
   }
+  if (import.meta.env.DEV) {
+    const parts = [err.code]
+    if (err.httpStatus !== null) parts.push(`http ${err.httpStatus}`)
+    if (elapsedMs !== undefined) parts.push(`${elapsedMs}ms`)
+    base += `  [${parts.join(' · ')}]`
+  }
+  return base
 }
 
 // ── Internal icons ─────────────────────────────────────────────────────────────
@@ -378,6 +381,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
     // promise settles, the sheet was closed while the request was in flight.
     requestIdRef.current += 1
     const thisId = requestIdRef.current
+    const t0     = performance.now()
 
     try {
       const result = await estimateMeal(text)
@@ -406,7 +410,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
       if (requestIdRef.current !== thisId) return   // sheet closed — discard
       console.error(`${SHEET_TAG} estimate failed:`, err)
       setState('input')
-      setErrorMsg(friendlyMessage(err))
+      setErrorMsg(friendlyMessage(err, Math.round(performance.now() - t0)))
       setManualAllowed(true)
     }
   }

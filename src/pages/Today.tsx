@@ -527,7 +527,7 @@ export default function Today() {
       </div>
 
       {/* Add a meal */}
-      <div className="flex-shrink-0 px-5 pb-10 pt-2">
+      <div className="flex-shrink-0 px-5 pt-2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 20px)' }}>
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
