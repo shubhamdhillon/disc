@@ -13,6 +13,8 @@ export interface LoggedMeal {
   protein:   number   // grams
   carbs:     number   // grams
   fat:       number   // grams
+  sugar:     number   // grams, rough estimate
+  quality:   string[] // classification tags
   timestamp: number   // Date.now() — ms since epoch
 }
 
@@ -46,10 +48,12 @@ export function getTodaysMeals(): LoggedMeal[] {
 
 /** Persist a new meal. Returns the saved record with generated id + timestamp. */
 export function addMeal(
-  meal: Pick<LoggedMeal, 'name' | 'calories' | 'protein' | 'carbs' | 'fat'>,
+  meal: Pick<LoggedMeal, 'name' | 'calories' | 'protein' | 'carbs' | 'fat' | 'sugar' | 'quality'>,
 ): LoggedMeal {
   const record: LoggedMeal = {
     ...meal,
+    sugar:     meal.sugar   ?? 0,
+    quality:   meal.quality ?? [],
     id:        crypto.randomUUID(),
     timestamp: Date.now(),
   }

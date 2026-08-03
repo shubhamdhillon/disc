@@ -60,6 +60,8 @@ export interface MealEstimate {
   protein:  number
   carbs:    number
   fat:      number
+  sugar:    number      // rough estimate, grams
+  quality:  string[]    // classification tags
 }
 
 export type EstimateResult =
@@ -83,10 +85,12 @@ const RESPONSE_SCHEMA = {
     calories: { type: Type.INTEGER },
     protein:  { type: Type.INTEGER },
     carbs:    { type: Type.INTEGER },
-    fats:     { type: Type.INTEGER },
+    fat:      { type: Type.INTEGER },
+    sugar:    { type: Type.INTEGER },
+    quality:  { type: Type.ARRAY, items: { type: Type.STRING } },
     reason:   { type: Type.STRING  },
   },
-  required: ['valid'],
+  required: ['valid', 'sugar'],
 }
 
 const SYSTEM_PROMPT = `\
@@ -101,8 +105,18 @@ Assume typical Indian home portion sizes unless quantities are specified:
 - Idli: 80 g each, usually 2–3 served
 - Dosa: 1 medium (~100 g batter)
 
+Also estimate added sugar in grams (rough estimate is fine).
+
+Classify each meal with one or more of exactly these five tags (lowercase, from this fixed set only):
+- "whole": minimally processed / home-cooked (dal, sabzi, roti, rice, fruit)
+- "processed": packaged or factory-made (biscuits, chips, instant noodles)
+- "sugary": high added sugar (mithai, sweets, desserts, sweetened drinks)
+- "fried": deep-fried (samosa, pakora, puri)
+- "drink": any calorie-containing beverage (chai, soda, juice, lassi)
+A meal can have multiple tags (e.g. kaju katli → ["sugary","processed"]; samosa → ["fried","processed"]; dal → ["whole"]).
+
 For a VALID meal input, respond exactly:
-{"valid":true,"name":"<2–5 word name>","calories":<int>,"protein":<int>,"carbs":<int>,"fats":<int>}
+{"valid":true,"name":"...","calories":<int>,"protein":<int>,"carbs":<int>,"fat":<int>,"sugar":<int>,"quality":["<tag>"]}
 
 If the input is NOT a recognisable meal (gibberish, random letters, non-food text) respond exactly:
 {"valid":false,"reason":"not a meal"}
@@ -198,7 +212,11 @@ function parseResponse(raw: string): EstimateResult {
     calories: Math.round(Number(obj.calories ?? 0)),
     protein:  Math.round(Number(obj.protein  ?? 0)),
     carbs:    Math.round(Number(obj.carbs    ?? 0)),
-    fat:      Math.round(Number((obj.fat ?? obj.fats) ?? 0)),
+    fat:      Math.round(Number(obj.fat      ?? 0)),
+    sugar:    Math.round(Number(obj.sugar    ?? 0)),
+    quality:  Array.isArray(obj.quality)
+                ? obj.quality.filter((t): t is string => typeof t === 'string')
+                : [],
   }
 }
 

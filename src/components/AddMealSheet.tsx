@@ -237,6 +237,8 @@ function ConfirmState({
       protein:  Math.max(0, parseInt(protein) || 0),
       carbs:    estimate.carbs,
       fat:      estimate.fat,
+      sugar:    estimate.sugar,
+      quality:  estimate.quality,
     })
   }
 
@@ -354,7 +356,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
   // Escape hatch: skip the estimate, go straight to ConfirmState so the user
   // can type their own numbers. Prefills the name from what they typed.
   const handleManual = () => {
-    setEstimate({ name: lastInput, calories: 0, protein: 0, carbs: 0, fat: 0 })
+    setEstimate({ name: lastInput, calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, quality: [] })
     setIsManual(true)
     setManualAllowed(false)
     setErrorMsg(null)
@@ -397,12 +399,17 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
       }
 
       // ── Valid estimate ─────────────────────────────────────────────────────
+      // TEMP — verify model returns quality/sugar; remove once confirmed
+      if (import.meta.env.DEV) console.log('[EST]', JSON.stringify(result))
+
       setEstimate({
         name:     result.name,
         calories: result.calories,
         protein:  result.protein,
         carbs:    result.carbs,
         fat:      result.fat,
+        sugar:    result.sugar,
+        quality:  result.quality,
       })
       setState('confirm')
 
