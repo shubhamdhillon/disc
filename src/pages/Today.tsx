@@ -6,6 +6,7 @@ import {
   getTodaysMeals,
   sumMacros,
   formatMealTime,
+  removeMeal,
   type LoggedMeal,
 } from '../lib/mealsStore'
 
@@ -661,6 +662,10 @@ export default function Today() {
   const [mealVersion,   setMealVersion]   = useState(0)
   // Which katori index just filled — drives the spring animation
   const [newKatoriIdx,  setNewKatoriIdx]  = useState<number | null>(null)
+  // Chip instant-log undo toast — only set when AddMealSheet passes undo info
+  const [undoToast,     setUndoToast]     = useState<{ id: string; name: string } | null>(null)
+  const undoTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const katoriTimerRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const handleSetName = (n: string) => {
     localStorage.setItem('disc_name', n)
@@ -674,25 +679,45 @@ export default function Today() {
   const zone      = computeDayZone(consumed.calories, targets.calories, now)
   const display   = zoneDisplay(zone, consumed.calories, targets.calories)
 
-  // Called by AddMealSheet after "Log it" once the sheet exit animation completes
-  const handleMealLogged = () => {
+  // Called by AddMealSheet after "Log it" once the sheet exit animation completes.
+  // `undo` is only provided for chip instant-logs (no confirm step).
+  const handleMealLogged = (undo?: { id: string; name: string }) => {
     const newIdx = meals.length   // current count = 0-based index of the new katori
 
     if (!prefersReduced && typeof navigator.vibrate === 'function') {
       try { navigator.vibrate(12) } catch {}
     }
 
-    // Spring applies to every newly filled bowl — no 6-slot cap
-    // Delay so the sheet exit finishes before the katori lands
-    setTimeout(() => setNewKatoriIdx(newIdx), 1200)
-    setTimeout(() => setNewKatoriIdx(null), 1900)
+    // Clear any prior katori timers (e.g. undo then re-log)
+    katoriTimerRef.current.forEach(clearTimeout)
+    katoriTimerRef.current = [
+      setTimeout(() => setNewKatoriIdx(newIdx), 1200),
+      setTimeout(() => setNewKatoriIdx(null), 1900),
+    ]
 
+    setMealVersion(v => v + 1)
+
+    if (undo) {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+      setUndoToast(undo)
+      undoTimerRef.current = setTimeout(() => setUndoToast(null), 4000)
+    }
+  }
+
+  const handleUndo = () => {
+    if (!undoToast) return
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    katoriTimerRef.current.forEach(clearTimeout)
+    katoriTimerRef.current = []
+    removeMeal(undoToast.id)
+    setUndoToast(null)
+    setNewKatoriIdx(null)
     setMealVersion(v => v + 1)
   }
 
   return (
     <motion.div
-      className="flex h-dvh flex-col bg-white"
+      className="relative flex h-dvh flex-col bg-white"
       initial={{ opacity: prefersReduced ? 1 : 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
@@ -798,6 +823,35 @@ export default function Today() {
         onClose={() => setSheetOpen(false)}
         onLogged={handleMealLogged}
       />
+
+      {/* Chip instant-log undo toast — plate visible, does not block interaction */}
+      <AnimatePresence>
+        {undoToast && (
+          <motion.div
+            key="undo-toast"
+            className="pointer-events-none absolute inset-x-0 z-50 flex justify-center px-5"
+            style={{ bottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 88px), 108px)' }}
+            initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6, transition: { duration: 0.18 } }}
+            transition={{ duration: 0.22, ease: 'easeOut' }}
+          >
+            <div className="pointer-events-auto flex items-center gap-3 rounded-2xl bg-gray-900 px-4 py-3 shadow-lg">
+              <p className="text-[14px] text-white">
+                Logged {undoToast.name}
+              </p>
+              <button
+                type="button"
+                onClick={handleUndo}
+                className="text-[14px] font-semibold"
+                style={{ color: '#86EFAC' }}
+              >
+                Undo
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

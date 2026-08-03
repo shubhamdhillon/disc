@@ -63,6 +63,16 @@ export function addMeal(
   return record
 }
 
+/** Remove a meal by id. No-op if missing or storage fails. */
+export function removeMeal(id: string): void {
+  try {
+    const next = getMeals().filter(m => m.id !== id)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // no-op
+  }
+}
+
 // ── Aggregation ───────────────────────────────────────────────────────────────
 
 /** Sum all four macros across an array of meals. */

@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { estimateMeal, EstimateError } from '../lib/estimateMeal'
 import { addMeal } from '../lib/mealsStore'
-import { cacheMeal, lookupMeal } from '../lib/mealCache'
+import { cacheMeal, lookupMeal, getFrequentMeals, type CachedMeal } from '../lib/mealCache'
 import type { MealEstimate } from '../lib/estimateMeal'
 import QualityIcons from './QualityIcons'
 
@@ -84,15 +84,23 @@ interface InputStateProps {
   onSubmit:     (text: string) => void
   errorMsg:     string | null
   defaultValue: string
-  // When set, an "Enter it manually" escape hatch is shown below the error.
-  // Only provided after an API failure or a "not a meal" rejection — not for
-  // the junk pre-check, which doesn't warrant skipping the estimate.
-  onManual:     (() => void) | null
+  // Instant-log a frequent cached meal (no confirm, no API).
+  onQuickLog:   (meal: CachedMeal) => void
 }
 
-function InputState({ onSubmit, errorMsg, defaultValue, onManual }: InputStateProps) {
+function truncateChipName(name: string, max = 14): string {
+  if (name.length <= max) return name
+  return name.slice(0, max).trimEnd() + '…'
+}
+
+function InputState({ onSubmit, errorMsg, defaultValue, onQuickLog }: InputStateProps) {
   const [value, setValue] = useState(defaultValue)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [frequent, setFrequent] = useState<CachedMeal[]>([])
+
+  useEffect(() => {
+    setFrequent(getFrequentMeals(4))
+  }, [])
 
   const handleSubmit = () => {
     const trimmed = value.trim()
@@ -129,7 +137,7 @@ function InputState({ onSubmit, errorMsg, defaultValue, onManual }: InputStatePr
         />
       </div>
 
-      {/* Error message + optional manual-entry escape hatch */}
+      {/* Error message */}
       <AnimatePresence>
         {errorMsg && (
           <motion.div
@@ -140,19 +148,29 @@ function InputState({ onSubmit, errorMsg, defaultValue, onManual }: InputStatePr
             className="mt-3 flex flex-col items-center gap-1.5"
           >
             <p className="text-center text-[13px] font-medium text-amber-600">{errorMsg}</p>
-            {onManual && (
-              <button
-                type="button"
-                onClick={onManual}
-                className="text-[13px] font-semibold"
-                style={{ color: BRAND_GREEN }}
-              >
-                Enter it manually
-              </button>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Frequent-meal quick-log chips — shortcut only, no empty state */}
+      {frequent.length > 0 && (
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {frequent.map(meal => (
+            <button
+              key={`${meal.name}-${meal.calories}-${meal.lastUsed}`}
+              type="button"
+              onClick={() => onQuickLog(meal)}
+              className="flex-shrink-0 rounded-full border border-green-100 px-3 py-1.5 text-left"
+              style={{ backgroundColor: 'rgba(28,124,46,0.08)' }}
+            >
+              <span className="text-[13px] font-medium" style={{ color: BRAND_GREEN }}>
+                {truncateChipName(meal.name)}
+              </span>
+              <span className="text-[13px] text-gray-400"> · {meal.calories}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Estimate CTA — full width now that the photo button is deferred */}
       <div className="mt-4">
@@ -332,10 +350,16 @@ function ConfirmState({
 }
 
 // ── AddMealSheet ───────────────────────────────────────────────────────────────
+export interface InstantLogUndo {
+  id:   string
+  name: string
+}
+
 interface AddMealSheetProps {
   isOpen:    boolean
   onClose:   () => void
-  onLogged?: () => void
+  /** Called after sheet exit when a meal was logged. Passes undo info only for chip instant-logs. */
+  onLogged?: (undo?: InstantLogUndo) => void
 }
 
 export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheetProps) {
@@ -346,9 +370,9 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
   const [errorMsg,       setErrorMsg]       = useState<string | null>(null)
   // Preserved so the textarea is restored when we bounce back from estimating on error
   const [lastInput,      setLastInput]      = useState('')
-  // true while the "Enter it manually" button should be visible on the input screen
-  const [manualAllowed,  setManualAllowed]  = useState(false)
-  // true when the user entered ConfirmState via the manual path (blanks the number fields)
+  // Manual ConfirmState path (blank calorie/protein fields). No UI trigger currently —
+  // frequent chips are the no-API fallback. To re-enable: setEstimate from lastInput
+  // with zeros, setIsManual(true), setState('confirm').
   const [isManual,       setIsManual]       = useState(false)
 
   // Incremented on every new request and on close. Any in-flight promise
@@ -356,6 +380,8 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
   const requestIdRef   = useRef(0)
   // Set to true in handleLog so onExitComplete knows to fire onLogged.
   const mealLoggedRef  = useRef(false)
+  // Set only for chip instant-logs — carries undo payload to onLogged.
+  const instantUndoRef = useRef<InstantLogUndo | null>(null)
 
   const resetAndClose = () => {
     requestIdRef.current += 1   // invalidate any in-flight estimate
@@ -364,14 +390,20 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
     // outer AnimatePresence, which fires after the sheet spring finishes.
   }
 
-  // Escape hatch: skip the estimate, go straight to ConfirmState so the user
-  // can type their own numbers. Prefills the name from what they typed.
-  const handleManual = () => {
-    setEstimate({ name: lastInput, calories: 0, protein: 0, carbs: 0, fat: 0, sugar: 0, quality: [] })
-    setIsManual(true)
-    setManualAllowed(false)
-    setErrorMsg(null)
-    setState('confirm')
+  // Instant chip-log — no confirm, no API. Undo toast is offered via onLogged.
+  const handleQuickLog = (cached: CachedMeal) => {
+    const record = addMeal({
+      name:     cached.name,
+      calories: cached.calories,
+      protein:  cached.protein,
+      carbs:    cached.carbs,
+      fat:      cached.fat,
+      sugar:    cached.sugar,
+      quality:  cached.quality,
+    })
+    mealLoggedRef.current  = true
+    instantUndoRef.current = { id: record.id, name: record.name }
+    resetAndClose()
   }
 
   const handleSubmit = async (text: string) => {
@@ -404,7 +436,6 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
 
     setLastInput(text)
     setErrorMsg(null)
-    setManualAllowed(false)
     setState('estimating')
 
     // Capture the id before the await. If it no longer matches after the
@@ -422,7 +453,6 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
       if (!result.valid) {
         setState('input')
         setErrorMsg("Hmm, that doesn't look like a meal — mind describing what you ate?")
-        setManualAllowed(true)
         return
       }
 
@@ -446,13 +476,13 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
       console.error(`${SHEET_TAG} estimate failed:`, err)
       setState('input')
       setErrorMsg(friendlyMessage(err, Math.round(performance.now() - t0)))
-      setManualAllowed(true)
     }
   }
 
   const handleLog = (meal: MealEstimate) => {
     addMeal(meal)
-    mealLoggedRef.current = true   // onExitComplete will fire onLogged after sheet exits
+    mealLoggedRef.current  = true   // onExitComplete will fire onLogged after sheet exits
+    instantUndoRef.current = null   // normal confirm-log — no undo toast
     resetAndClose()
   }
 
@@ -460,7 +490,6 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
     setState('input')
     setEstimate(null)
     setErrorMsg(null)
-    setManualAllowed(false)
     setIsManual(false)
   }
 
@@ -470,12 +499,13 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
     setEstimate(null)
     setErrorMsg(null)
     setLastInput('')
-    setManualAllowed(false)
     setIsManual(false)
     // Fire the "meal was logged" callback now that the plate is visible.
     if (mealLoggedRef.current) {
       mealLoggedRef.current = false
-      onLogged?.()
+      const undo = instantUndoRef.current
+      instantUndoRef.current = null
+      onLogged?.(undo ?? undefined)
     }
   }
 
@@ -520,7 +550,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
                   onSubmit={handleSubmit}
                   errorMsg={errorMsg}
                   defaultValue={lastInput}
-                  onManual={manualAllowed ? handleManual : null}
+                  onQuickLog={handleQuickLog}
                 />
               )}
               {state === 'estimating' && (
