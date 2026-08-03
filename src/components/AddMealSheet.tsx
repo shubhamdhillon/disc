@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { estimateMeal, EstimateError } from '../lib/estimateMeal'
-import { addMeal } from '../lib/mealsStore'
+import { addMeal, type LoggedMeal } from '../lib/mealsStore'
 import { cacheMeal, lookupMeal, getFrequentMeals, type CachedMeal } from '../lib/mealCache'
 import type { MealEstimate } from '../lib/estimateMeal'
 import QualityIcons from './QualityIcons'
@@ -350,16 +350,11 @@ function ConfirmState({
 }
 
 // ── AddMealSheet ───────────────────────────────────────────────────────────────
-export interface InstantLogUndo {
-  id:   string
-  name: string
-}
-
 interface AddMealSheetProps {
   isOpen:    boolean
   onClose:   () => void
-  /** Called after sheet exit when a meal was logged. Passes undo info only for chip instant-logs. */
-  onLogged?: (undo?: InstantLogUndo) => void
+  /** Called after sheet exit when a meal was logged. Passes the full meal only for chip instant-logs. */
+  onLogged?: (meal?: LoggedMeal) => void
 }
 
 export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheetProps) {
@@ -380,8 +375,8 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
   const requestIdRef   = useRef(0)
   // Set to true in handleLog so onExitComplete knows to fire onLogged.
   const mealLoggedRef  = useRef(false)
-  // Set only for chip instant-logs — carries undo payload to onLogged.
-  const instantUndoRef = useRef<InstantLogUndo | null>(null)
+  // Set only for chip instant-logs — full meal for undo toast.
+  const instantUndoRef = useRef<LoggedMeal | null>(null)
 
   const resetAndClose = () => {
     requestIdRef.current += 1   // invalidate any in-flight estimate
@@ -402,7 +397,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
       quality:  cached.quality,
     })
     mealLoggedRef.current  = true
-    instantUndoRef.current = { id: record.id, name: record.name }
+    instantUndoRef.current = record
     resetAndClose()
   }
 

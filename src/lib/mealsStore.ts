@@ -73,6 +73,18 @@ export function removeMeal(id: string): void {
   }
 }
 
+/** Re-insert a previously removed meal (same id + timestamp), then sort newest-first. */
+export function restoreMeal(meal: LoggedMeal): void {
+  try {
+    const existing = getMeals().filter(m => m.id !== meal.id)
+    existing.push(meal)
+    existing.sort((a, b) => b.timestamp - a.timestamp)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing))
+  } catch {
+    // no-op
+  }
+}
+
 // ── Aggregation ───────────────────────────────────────────────────────────────
 
 /** Sum all four macros across an array of meals. */

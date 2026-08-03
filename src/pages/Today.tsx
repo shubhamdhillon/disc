@@ -7,6 +7,7 @@ import {
   sumMacros,
   formatMealTime,
   removeMeal,
+  restoreMeal,
   type LoggedMeal,
 } from '../lib/mealsStore'
 
@@ -611,9 +612,28 @@ function Thali({
 }
 
 // ─── Meal row ──────────────────────────────────────────────────────────────────
-function MealRow({ meal }: { meal: LoggedMeal }) {
+function MealRow({
+  meal,
+  onDelete,
+}: {
+  meal:     LoggedMeal
+  onDelete: (meal: LoggedMeal) => void
+}) {
+  const [showDelete, setShowDelete] = useState(false)
+
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3.5">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => setShowDelete(v => !v)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          setShowDelete(v => !v)
+        }
+      }}
+      className="flex cursor-pointer items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3.5"
+    >
       <div className="h-9 w-9 flex-shrink-0 rounded-xl" style={{ backgroundColor: 'rgba(28,124,46,0.09)' }} />
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -622,10 +642,24 @@ function MealRow({ meal }: { meal: LoggedMeal }) {
         </div>
         <p className="mt-0.5 text-[12px] text-gray-400">{formatMealTime(meal.timestamp)}</p>
       </div>
-      <div className="flex-shrink-0 text-right">
-        <p className="text-[14px] font-semibold text-gray-800">{meal.calories} cal</p>
-        <p className="mt-0.5 text-[12px] text-gray-400">{meal.protein}g protein</p>
-      </div>
+      {showDelete ? (
+        <button
+          type="button"
+          aria-label={`Delete ${meal.name}`}
+          onClick={e => {
+            e.stopPropagation()
+            onDelete(meal)
+          }}
+          className="flex-shrink-0 rounded-xl px-3 py-2 text-[13px] font-semibold text-red-500"
+        >
+          Delete
+        </button>
+      ) : (
+        <div className="flex-shrink-0 text-right">
+          <p className="text-[14px] font-semibold text-gray-800">{meal.calories} cal</p>
+          <p className="mt-0.5 text-[12px] text-gray-400">{meal.protein}g protein</p>
+        </div>
+      )}
     </div>
   )
 }
@@ -662,10 +696,18 @@ export default function Today() {
   const [mealVersion,   setMealVersion]   = useState(0)
   // Which katori index just filled — drives the spring animation
   const [newKatoriIdx,  setNewKatoriIdx]  = useState<number | null>(null)
-  // Chip instant-log undo toast — only set when AddMealSheet passes undo info
-  const [undoToast,     setUndoToast]     = useState<{ id: string; name: string } | null>(null)
+  // Shared undo toast for chip-log and row-delete
+  const [undoToast, setUndoToast] = useState<
+    { action: 'logged' | 'deleted'; meal: LoggedMeal } | null
+  >(null)
   const undoTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const katoriTimerRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  const showUndoToast = (action: 'logged' | 'deleted', meal: LoggedMeal) => {
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    setUndoToast({ action, meal })
+    undoTimerRef.current = setTimeout(() => setUndoToast(null), 4000)
+  }
 
   const handleSetName = (n: string) => {
     localStorage.setItem('disc_name', n)
@@ -679,9 +721,8 @@ export default function Today() {
   const zone      = computeDayZone(consumed.calories, targets.calories, now)
   const display   = zoneDisplay(zone, consumed.calories, targets.calories)
 
-  // Called by AddMealSheet after "Log it" once the sheet exit animation completes.
-  // `undo` is only provided for chip instant-logs (no confirm step).
-  const handleMealLogged = (undo?: { id: string; name: string }) => {
+  // Called by AddMealSheet after sheet exit. `loggedMeal` is only set for chip instant-logs.
+  const handleMealLogged = (loggedMeal?: LoggedMeal) => {
     const newIdx = meals.length   // current count = 0-based index of the new katori
 
     if (!prefersReduced && typeof navigator.vibrate === 'function') {
@@ -697,11 +738,15 @@ export default function Today() {
 
     setMealVersion(v => v + 1)
 
-    if (undo) {
-      if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
-      setUndoToast(undo)
-      undoTimerRef.current = setTimeout(() => setUndoToast(null), 4000)
+    if (loggedMeal) {
+      showUndoToast('logged', loggedMeal)
     }
+  }
+
+  const handleDeleteMeal = (meal: LoggedMeal) => {
+    removeMeal(meal.id)
+    setMealVersion(v => v + 1)
+    showUndoToast('deleted', meal)
   }
 
   const handleUndo = () => {
@@ -709,7 +754,11 @@ export default function Today() {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
     katoriTimerRef.current.forEach(clearTimeout)
     katoriTimerRef.current = []
-    removeMeal(undoToast.id)
+    if (undoToast.action === 'logged') {
+      removeMeal(undoToast.meal.id)
+    } else {
+      restoreMeal(undoToast.meal)
+    }
     setUndoToast(null)
     setNewKatoriIdx(null)
     setMealVersion(v => v + 1)
@@ -793,7 +842,7 @@ export default function Today() {
                       exit={{ opacity: 0, y: -6, transition: { duration: 0.2 } }}
                       transition={{ duration: 0.28, ease: 'easeOut' }}
                     >
-                      <MealRow meal={meal} />
+                      <MealRow meal={meal} onDelete={handleDeleteMeal} />
                     </motion.div>
                   ))}
                 </AnimatePresence>
@@ -824,7 +873,7 @@ export default function Today() {
         onLogged={handleMealLogged}
       />
 
-      {/* Chip instant-log undo toast — plate visible, does not block interaction */}
+      {/* Undo toast — chip log or row delete; does not block interaction */}
       <AnimatePresence>
         {undoToast && (
           <motion.div
@@ -838,7 +887,8 @@ export default function Today() {
           >
             <div className="pointer-events-auto flex items-center gap-3 rounded-2xl bg-gray-900 px-4 py-3 shadow-lg">
               <p className="text-[14px] text-white">
-                Logged {undoToast.name}
+                {undoToast.action === 'logged' ? 'Logged' : 'Deleted'}{' '}
+                {undoToast.meal.name}
               </p>
               <button
                 type="button"
