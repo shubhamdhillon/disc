@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { estimateMeal, EstimateError } from '../lib/estimateMeal'
 import { addMeal } from '../lib/mealsStore'
+import { cacheMeal, lookupMeal } from '../lib/mealCache'
 import type { MealEstimate } from '../lib/estimateMeal'
 import QualityIcons from './QualityIcons'
 
@@ -204,13 +205,16 @@ function ConfirmState({
   onLog,
   onBack,
   manual,
+  originalInput,
 }: {
-  estimate: MealEstimate
-  onLog:    (meal: MealEstimate) => void
-  onBack:   () => void
+  estimate:       MealEstimate
+  onLog:          (meal: MealEstimate) => void
+  onBack:         () => void
   // When true the user arrived via the manual path — calories and protein
   // start empty so they can type their own values rather than editing a 0.
-  manual?:  boolean
+  manual?:        boolean
+  // Raw text the user typed — used as the cache key (not the model name).
+  originalInput:  string
 }) {
   const reduced                 = useReducedMotion() ?? false
   const [name,     setName]     = useState(estimate.name)
@@ -223,7 +227,7 @@ function ConfirmState({
 
   const handleLog = () => {
     if (!canLog) return
-    onLog({
+    const meal = {
       name:     name.trim() || estimate.name,
       calories: calorieVal,
       protein:  Math.max(0, parseInt(protein) || 0),
@@ -231,7 +235,11 @@ function ConfirmState({
       fat:      estimate.fat,
       sugar:    estimate.sugar,
       quality:  estimate.quality,
-    })
+    }
+    onLog(meal)
+    // Cache under the user's typed text so future lookups match their input.
+    // Uses the confirmed/edited values (same as what was logged).
+    cacheMeal(originalInput, meal)
   }
 
   return (
@@ -377,6 +385,23 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
       return
     }
 
+    // ── Cache hit — skip the API, go straight to confirm ─────────────────────
+    const cached = lookupMeal(text)
+    if (cached) {
+      setEstimate({
+        name:     cached.name,
+        calories: cached.calories,
+        protein:  cached.protein,
+        carbs:    cached.carbs,
+        fat:      cached.fat,
+        sugar:    cached.sugar,
+        quality:  cached.quality,
+      })
+      setLastInput(text)
+      setState('confirm')
+      return
+    }
+
     setLastInput(text)
     setErrorMsg(null)
     setManualAllowed(false)
@@ -508,6 +533,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
                   onLog={handleLog}
                   onBack={handleBack}
                   manual={isManual}
+                  originalInput={lastInput}
                 />
               )}
             </AnimatePresence>
