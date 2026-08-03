@@ -3,6 +3,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { estimateMeal, EstimateError } from '../lib/estimateMeal'
 import { addMeal } from '../lib/mealsStore'
 import type { MealEstimate } from '../lib/estimateMeal'
+import QualityIcons from './QualityIcons'
 
 const BRAND_GREEN = '#1C7C2E'
 const SHEET_TAG   = '[AddMealSheet]'
@@ -272,6 +273,11 @@ function ConfirmState({
           onChange={e => setName(e.target.value)}
           className="w-full bg-transparent text-[18px] font-semibold text-gray-900 outline-none"
         />
+        {estimate.quality?.length > 0 && (
+          <div className="mt-2">
+            <QualityIcons tags={estimate.quality} size={16} />
+          </div>
+        )}
       </div>
 
       {/* Calories + Protein — editable tiles.

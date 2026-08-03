@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, animate } from 'framer-motion'
 import AddMealSheet from '../components/AddMealSheet'
+import QualityIcons from '../components/QualityIcons'
 import {
   getTodaysMeals,
   sumMacros,
@@ -614,7 +615,10 @@ function MealRow({ meal }: { meal: LoggedMeal }) {
     <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3.5">
       <div className="h-9 w-9 flex-shrink-0 rounded-xl" style={{ backgroundColor: 'rgba(28,124,46,0.09)' }} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-semibold text-gray-800">{meal.name}</p>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="truncate text-[14px] font-semibold text-gray-800">{meal.name}</p>
+          <QualityIcons tags={meal.quality ?? []} size={14} />
+        </div>
         <p className="mt-0.5 text-[12px] text-gray-400">{formatMealTime(meal.timestamp)}</p>
       </div>
       <div className="flex-shrink-0 text-right">
