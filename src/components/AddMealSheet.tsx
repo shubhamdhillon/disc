@@ -153,22 +153,13 @@ function InputState({ onSubmit, errorMsg, defaultValue, onManual }: InputStatePr
         )}
       </AnimatePresence>
 
-      {/* Actions */}
-      <div className="mt-4 flex gap-3">
-        <button
-          type="button"
-          aria-label="Add photo"
-          className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gray-100 text-gray-400"
-        >
-          <CameraIcon />
-        </button>
-
-        {/* Estimate CTA */}
+      {/* Estimate CTA — full width now that the photo button is deferred */}
+      <div className="mt-4">
         <button
           type="button"
           disabled={!value.trim()}
           onClick={handleSubmit}
-          className="flex h-12 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[16px] font-semibold text-white transition-opacity disabled:opacity-40"
+          className="flex h-12 w-full items-center justify-center gap-1.5 rounded-2xl text-[16px] font-semibold text-white transition-opacity disabled:opacity-40"
           style={{ backgroundColor: BRAND_GREEN }}
         >
           Estimate
@@ -250,22 +241,23 @@ function ConfirmState({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -6 }}
       transition={{ duration: 0.22, ease: 'easeOut' }}
+      className="flex flex-col gap-4"
     >
-      {/* Heading + Back */}
-      <div className="mb-5 flex items-center justify-between">
-        <p className="text-[22px] font-bold text-gray-900">Looks right?</p>
+      {/* Heading + Start over */}
+      <div className="flex items-center justify-between">
+        <p className="text-[22px] font-bold text-gray-900">Here's what I got</p>
         <button
           type="button"
           onClick={onBack}
           className="text-[16px] font-semibold"
           style={{ color: BRAND_GREEN }}
         >
-          Back
+          Start over
         </button>
       </div>
 
-      {/* Meal name — editable */}
-      <div className="mb-4 border-b border-gray-100 pb-3">
+      {/* Meal name + quality icons */}
+      <div className="border-b border-gray-100 pb-3">
         <p className="mb-1 text-[11px] font-medium uppercase tracking-wider text-gray-400">Meal</p>
         <input
           type="text"
@@ -283,7 +275,7 @@ function ConfirmState({
       {/* Calories + Protein — editable tiles.
           type="text" + inputMode="numeric" shows the iOS numeric keypad without
           number-input quirks (spinners, accepting "e" / "+" / "-"). */}
-      <div className="mb-6 flex gap-3">
+      <div className="flex gap-3">
         <div className="flex flex-1 flex-col items-center rounded-2xl bg-gray-50 px-4 py-4">
           <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-400">Calories</p>
           <input
@@ -310,7 +302,12 @@ function ConfirmState({
         </div>
       </div>
 
-      {/* Log it — disabled until calories > 0 */}
+      {/* Sugar — display-only, subordinate to the tiles above */}
+      {estimate.sugar > 0 && (
+        <p className="text-[13px] text-gray-400">Sugar {estimate.sugar}g</p>
+      )}
+
+      {/* Log it — disabled until calories > 0; label reflects state */}
       <motion.button
         type="button"
         onClick={handleLog}
@@ -320,7 +317,7 @@ function ConfirmState({
         whileTap={reduced || !canLog ? {} : { scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       >
-        Log it
+        {canLog ? 'Log it' : 'Add calories to log'}
       </motion.button>
     </motion.div>
   )
