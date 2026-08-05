@@ -166,23 +166,23 @@ function zoneDisplay(zone: DayZone, consumed: number, target: number): ZoneDispl
       return {
         number: remaining,
         sublabel: `left of ${target.toLocaleString()}`,
-        copy: 'Right on target. Good day.',
+        copy: 'Right on target. Good day',
         numberColor: '#111827',
         showCalUnit: true,
       }
     case 'over':
       return {
         number: overage,
-        sublabel: 'over today',
-        copy: `${overage} over today. Reset at midnight.`,
+        sublabel: 'Over today',
+        copy: `${overage} Over today.`,
         numberColor: accent,
         showCalUnit: true,
       }
     case 'under':
       return {
         number: deficit,
-        sublabel: 'under target',
-        copy: `You're ${deficit} under — eat something.`,
+        sublabel: 'Under target',
+        copy: `You're ${deficit} under, eat something`,
         numberColor: accent,
         showCalUnit: true,
       }
@@ -277,20 +277,20 @@ function CountUp({ target, duration, reduced, locale = false, className, style }
 // ─── Icons ────────────────────────────────────────────────────────────────────
 function AvatarIcon() {
   return (
-    <div className="flex h-[38px] w-[38px] items-center justify-center rounded-full border border-green-100 bg-green-50">
-      <svg width="20" height="20" viewBox="0 0 100 100" aria-hidden="true">
-        <path
-          d="M50 5 C47 32 32 47 5 50 C32 53 47 68 50 95 C53 68 68 53 95 50 C68 47 53 32 50 5Z"
-          fill={BRAND_GREEN}
-        />
-      </svg>
-    </div>
+    <img
+      src="/avatar.png"
+      alt=""
+      width={38}
+      height={38}
+      className="h-[38px] w-[38px] flex-shrink-0 rounded-full object-cover"
+      style={{ border: '1px solid rgba(0,0,0,0.06)' }}
+    />
   )
 }
 
 function HistoryIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <polyline points="1 4 1 10 7 10" />
       <path d="M3.51 15a9 9 0 1 0 .49-3.51" />
       <polyline points="12 7 12 12 15.5 14" />
@@ -457,6 +457,26 @@ const TIER_KATORI: Record<MealTier, { fill: string; ring: string; number: string
   red:   { fill: '#FADCDC', ring: '#D96A6A', number: '#C45A5A' },
 }
 
+const VERDICT_GLOW = {
+  good: { core: '#059669', mid: '#065F46', rgb: '5,150,105',  particle: 'rgba(5,95,60,0.5)' },
+  warn: { core: '#D97706', mid: '#92400E', rgb: '217,119,6',   particle: 'rgba(146,64,14,0.5)' },
+  bad:  { core: '#E11D48', mid: '#9F1239', rgb: '225,29,72',   particle: 'rgba(159,18,57,0.5)' },
+} as const
+
+/** Tiny rim particles — staggered loops for nebula depth. */
+const NEBULA_PARTICLES = [
+  { top: '8%',  left: '42%', size: 2, dx: ['0%', '3%', '-2%', '0%'], dy: ['0%', '-8%', '-14%', '-18%'], dur: 14, delay: 0 },
+  { top: '14%', left: '72%', size: 3, dx: ['0%', '-4%', '2%', '0%'],  dy: ['0%', '-6%', '-12%', '-16%'], dur: 11, delay: 1.2 },
+  { top: '28%', left: '88%', size: 2, dx: ['0%', '-5%', '-2%', '0%'], dy: ['0%', '-4%', '-10%', '-14%'], dur: 16, delay: 0.4 },
+  { top: '55%', left: '92%', size: 2, dx: ['0%', '-3%', '1%', '0%'],  dy: ['0%', '-7%', '-11%', '-15%'], dur: 9,  delay: 2.1 },
+  { top: '78%', left: '78%', size: 3, dx: ['0%', '4%', '-1%', '0%'],  dy: ['0%', '-5%', '-9%',  '-13%'], dur: 13, delay: 0.8 },
+  { top: '88%', left: '48%', size: 2, dx: ['0%', '-2%', '3%', '0%'],  dy: ['0%', '-6%', '-12%', '-17%'], dur: 15, delay: 1.6 },
+  { top: '82%', left: '18%', size: 2, dx: ['0%', '5%', '2%', '0%'],   dy: ['0%', '-4%', '-10%', '-14%'], dur: 10, delay: 0.2 },
+  { top: '58%', left: '6%',  size: 3, dx: ['0%', '4%', '-1%', '0%'],  dy: ['0%', '-8%', '-13%', '-16%'], dur: 12, delay: 2.4 },
+  { top: '32%', left: '10%', size: 2, dx: ['0%', '3%', '-3%', '0%'],  dy: ['0%', '-5%', '-11%', '-15%'], dur: 8,  delay: 1.0 },
+  { top: '12%', left: '22%', size: 2, dx: ['0%', '2%', '-4%', '0%'],  dy: ['0%', '-7%', '-12%', '-18%'], dur: 14, delay: 1.8 },
+] as const
+
 function Thali({
   zone, display, meals, newlyFilledIdx, reduced,
 }: {
@@ -479,55 +499,166 @@ function Thali({
   const visual    = ZONE_VISUAL[zone]
   const showCal   = sizePx >= 34
 
-  const colorT = reduced
-    ? { duration: 0 }
-    : { duration: 0.4, ease: 'easeOut' as const }
+  // Day verdict — meal quality + calorie zone → glow color
+  const redCount = chronoMeals.filter(m => mealTier(m) === 'red').length
+  const isOver   = zone === 'over'
+  const verdict: 'good' | 'warn' | 'bad' =
+    (redCount >= 2 || isOver)                 ? 'bad'
+    : (redCount === 1 || zone === 'closing')  ? 'warn'
+    : 'good'
+  const g = VERDICT_GLOW[verdict]
+
+  // Copy reflects quality+calories verdict — not calories alone
+  const VERDICT_COPY = {
+    bad:  "Rough day, too much junk crept in",
+    warn: 'Decent, but watch the junk creeping in',
+  } as const
+  const VERDICT_COPY_COLOR = {
+    bad:  '#E11D48',
+    warn: '#D97706',
+    good: visual.accent,
+  } as const
+  const copyLine =
+    verdict === 'bad'  ? VERDICT_COPY.bad
+    : verdict === 'warn' ? VERDICT_COPY.warn
+    : display.copy   // good — keep celebratory / zone-positive line (or null)
+  const copyColor = VERDICT_COPY_COLOR[verdict]
 
   const emptyBorder = '1.5px dashed #D1D5DB'
-  const plateBg = `radial-gradient(circle, rgba(${visual.glowRgb},0.07) 0%, rgba(${visual.glowRgb},0.03) 65%, transparent 100%)`
-  const plateShadow = `0 0 72px 28px rgba(${visual.glowRgb},${visual.glowStrength})`
-
-  const showPulse = !reduced && visual.pulse
-  const showFullGlow = !reduced && visual.glowFull
 
   return (
-    <div className="flex flex-col items-center">
-      <motion.div
-        className="relative flex aspect-square w-full max-w-[300px] items-center justify-center rounded-full"
-        style={{
-          borderWidth: 1.5,
-          borderStyle: 'solid',
-          // Gradient snaps with the zone; border + glow ease below
-          background: plateBg,
-        }}
-        initial={false}
-        animate={{
-          borderColor: visual.border,
-          boxShadow: plateShadow,
-        }}
-        transition={colorT}
-      >
-        {/* Ambient glow — pulse for building/closing; solid full for landed */}
-        {showPulse && (
+    <div className="flex flex-col items-center py-8">
+      <div className="relative aspect-square w-full max-w-[230px]">
+        {/* Nebula layers — all behind opaque plate */}
+        <motion.div
+          key={`nebula-1-${verdict}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute rounded-full"
+          style={{
+            inset: '-16%',
+            zIndex: 0,
+            filter: 'blur(40px)',
+            background: `radial-gradient(circle at 50% 50%, rgba(${g.rgb},0.30) 0%, transparent 68%)`,
+          }}
+          animate={
+            reduced
+              ? { x: 0, y: 0, scale: 1 }
+              : {
+                  x: ['-4%', '5%', '-4%'],
+                  y: ['4%', '-5%', '4%'],
+                  scale: [1, 1.08, 1],
+                }
+          }
+          transition={
+            reduced
+              ? { duration: 0 }
+              : {
+                  x:     { duration: 26, repeat: Infinity, ease: 'easeInOut' },
+                  y:     { duration: 21, repeat: Infinity, ease: 'easeInOut' },
+                  scale: { duration: 17, repeat: Infinity, ease: 'easeInOut' },
+                }
+          }
+        />
+        <motion.div
+          key={`nebula-2-${verdict}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute rounded-full"
+          style={{
+            inset: '-10%',
+            zIndex: 0,
+            filter: 'blur(28px)',
+            background: `radial-gradient(circle at 42% 38%, rgba(${g.rgb},0.42) 0%, transparent 60%)`,
+          }}
+          animate={
+            reduced
+              ? { x: 0, y: 0, scale: 1 }
+              : {
+                  x: ['6%', '-5%', '6%'],
+                  y: ['-5%', '6%', '-5%'],
+                  scale: [1, 0.94, 1],
+                }
+          }
+          transition={
+            reduced
+              ? { duration: 0 }
+              : {
+                  x:     { duration: 19, repeat: Infinity, ease: 'easeInOut' },
+                  y:     { duration: 24, repeat: Infinity, ease: 'easeInOut' },
+                  scale: { duration: 14, repeat: Infinity, ease: 'easeInOut' },
+                }
+          }
+        />
+        <motion.div
+          key={`nebula-3-${verdict}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute rounded-full"
+          style={{
+            inset: '-4%',
+            zIndex: 0,
+            filter: 'blur(18px)',
+            background: `radial-gradient(circle at 58% 55%, rgba(${g.rgb},0.34) 0%, transparent 52%)`,
+          }}
+          animate={
+            reduced
+              ? { x: 0, y: 0, opacity: 0.8 }
+              : {
+                  x: ['-6%', '4%', '-6%'],
+                  y: ['5%', '-6%', '5%'],
+                  opacity: [0.6, 1, 0.6],
+                }
+          }
+          transition={
+            reduced
+              ? { duration: 0 }
+              : {
+                  x:       { duration: 15, repeat: Infinity, ease: 'easeInOut' },
+                  y:       { duration: 12, repeat: Infinity, ease: 'easeInOut' },
+                  opacity: { duration: 9,  repeat: Infinity, ease: 'easeInOut' },
+                }
+          }
+        />
+
+        {/* Rim particles — hidden when reduced motion */}
+        {!reduced && NEBULA_PARTICLES.map((p, i) => (
           <motion.div
+            key={`particle-${verdict}-${i}`}
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded-full"
-            style={{ background: `radial-gradient(circle, rgba(${visual.glowRgb},0.07) 0%, transparent 65%)` }}
-            animate={{ opacity: [0.45, 1, 0.45] }}
-            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-          />
-        )}
-        {showFullGlow && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 rounded-full"
+            className="pointer-events-none absolute rounded-full"
             style={{
-              background: `radial-gradient(circle, rgba(${visual.glowRgb},0.14) 0%, transparent 65%)`,
-              opacity: 1,
+              top: p.top,
+              left: p.left,
+              width: p.size,
+              height: p.size,
+              zIndex: 0,
+              backgroundColor: g.particle,
+            }}
+            animate={{
+              x: [...p.dx],
+              y: [...p.dy],
+              opacity: [0, 0.85, 0.5, 0],
+            }}
+            transition={{
+              duration: p.dur,
+              delay: p.delay,
+              repeat: Infinity,
+              ease: 'easeInOut',
             }}
           />
-        )}
+        ))}
 
+        {/* Opaque plate surface — blocks glow from washing the face */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 rounded-full"
+          style={{
+            zIndex: 1,
+            backgroundColor: '#FDFDFC',
+            border: '1px solid rgba(0,0,0,0.05)',
+          }}
+        />
+
+        {/* Katoris + center — on top of the opaque surface */}
+        <div className="absolute inset-0 z-[2] flex items-center justify-center rounded-full">
         {/* Katoris — outer div = position, inner motion.div = spring/fade */}
         {positions.map((pos, i) => {
           const meal          = chronoMeals[i]
@@ -612,21 +743,22 @@ function Thali({
           </p>
           <p className="mt-2 text-[13px] text-gray-400">{display.sublabel}</p>
         </div>
-      </motion.div>
+        </div>
+      </div>
 
-      {/* Zone copy line — outside the plate for breathing room */}
+      {/* Verdict copy — quality + calories, not calories alone */}
       <AnimatePresence mode="wait">
-        {display.copy && (
+        {copyLine && (
           <motion.p
-            key={display.copy}
+            key={copyLine}
             className="mt-4 max-w-[280px] text-center text-[13px] font-medium"
-            style={{ color: visual.accent }}
+            style={{ color: copyColor }}
             initial={reduced ? false : { opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
             exit={reduced ? undefined : { opacity: 0, y: -4 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
           >
-            {display.copy}
+            {copyLine}
           </motion.p>
         )}
       </AnimatePresence>
@@ -733,7 +865,7 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
   const todayStr = toDateKey(new Date())
 
   return (
-    <div className="flex w-full items-start justify-between px-5">
+    <div className="flex w-full items-start justify-between bg-transparent">
       {week.map(record => {
         const d        = parseLocalDate(record.date)
         const letter   = DAY_LETTERS[d.getDay()]
@@ -888,62 +1020,59 @@ export default function Today() {
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
     >
-      {/* Top block: header + week strip */}
+      {/* Header */}
       <div
-        className="flex-shrink-0"
+        className="flex-shrink-0 bg-transparent"
         style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 20px)' }}
       >
         <motion.div
-          className="flex items-center justify-between px-5 pb-3"
+          className="flex items-center justify-between gap-3 px-5 pb-2"
           {...fadeUp(0, prefersReduced)}
         >
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <AvatarIcon />
-            <div>
-              {name ? (
-                <>
-                  <p className="text-[11px] text-gray-400">{greeting}</p>
-                  <p className="text-[16px] font-semibold leading-tight text-gray-900">{name}</p>
-                </>
-              ) : (
-                <p className="text-[16px] font-semibold text-gray-900">{greeting} 👋</p>
-              )}
-            </div>
+            <p className="min-w-0 truncate text-[15px] font-semibold leading-tight text-gray-900">
+              {name ? `${greeting}, ${name}` : greeting}
+            </p>
           </div>
-          <button type="button" aria-label="View history" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50">
+          <button type="button" aria-label="View history" className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gray-50">
             <HistoryIcon />
           </button>
-        </motion.div>
-
-        <motion.div className="pb-4" {...fadeUp(0.02, prefersReduced)}>
-          <WeekStrip week={week} />
         </motion.div>
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto bg-transparent">
         {!name && <NamePrompt onSave={handleSetName} />}
 
         <div className="flex flex-col gap-6 px-5 pb-4">
 
-          {/* Macro strip — staggered entrance */}
-          <motion.div {...fadeUp(0.06, prefersReduced)}>
-            <MacroStrip
-              targets={targets}
-              consumed={consumed}
-              dayName={dayName}
-              mealsCount={meals.length}
-              reduced={prefersReduced}
-            />
+          {/* Week strip — transparent so plate halo can bleed behind */}
+          <motion.div
+            className="relative z-10 bg-transparent"
+            {...fadeUp(0.02, prefersReduced)}
+          >
+            <WeekStrip week={week} />
           </motion.div>
 
-          {/* Thali plate */}
-          <motion.div {...fadeUp(0.14, prefersReduced)}>
+          {/* Thali — equal space above/below via gap-6 + symmetric py-8 */}
+          <motion.div className="relative z-0" {...fadeUp(0.06, prefersReduced)}>
             <Thali
               zone={zone}
               display={display}
               meals={meals}
               newlyFilledIdx={newKatoriIdx}
+              reduced={prefersReduced}
+            />
+          </motion.div>
+
+          {/* Macro strip */}
+          <motion.div {...fadeUp(0.14, prefersReduced)}>
+            <MacroStrip
+              targets={targets}
+              consumed={consumed}
+              dayName={dayName}
+              mealsCount={meals.length}
               reduced={prefersReduced}
             />
           </motion.div>
