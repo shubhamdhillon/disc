@@ -10,6 +10,7 @@ import {
   restoreMeal,
   type LoggedMeal,
 } from '../lib/mealsStore'
+import { getWeekRecords, type DailyRecord } from '../lib/dailyRecords'
 
 const BRAND_GREEN = '#1C7C2E'
 const TERRACOTTA  = '#C4623D'
@@ -344,7 +345,7 @@ function NamePrompt({ onSave }: { onSave: (n: string) => void }) {
 
 // ─── Macro strip ──────────────────────────────────────────────────────────────
 function MacroStrip({
-  targets, consumed, dayName, mealsCount, reduced,
+  targets, consumed, dayName: _dayName, mealsCount: _mealsCount, reduced,
 }: {
   targets:    MacroTargets
   consumed:   MacroTargets
@@ -361,126 +362,128 @@ function MacroStrip({
   const cOver = consumed.carbs   > targets.carbs
   const fOver = consumed.fat     > targets.fat
 
-  const pColor = pOver ? TERRACOTTA : BRAND_GREEN
-  const cColor = cOver ? TERRACOTTA : '#fbbf24' // amber-400
-  const fColor = fOver ? TERRACOTTA : '#a78bfa' // violet-400
-
   const barT = reduced
     ? { duration: 0 }
     : { duration: 0.6, ease: 'easeOut' as const }
-  const colorT = reduced
-    ? { duration: 0 }
-    : { duration: 0.4, ease: 'easeOut' as const }
+
+  const columns: {
+    key:      string
+    label:    string
+    value:    number
+    target:   number
+    pct:      number
+    over:     boolean
+    gradient: string
+  }[] = [
+    {
+      key: 'protein', label: 'Protein',
+      value: consumed.protein, target: targets.protein, pct: pPct, over: pOver,
+      gradient: 'linear-gradient(90deg, #1C7C2E 0%, #34A048 100%)',
+    },
+    {
+      key: 'carbs', label: 'Carbs',
+      value: consumed.carbs, target: targets.carbs, pct: cPct, over: cOver,
+      gradient: 'linear-gradient(90deg, #6FA82F 0%, #8FC44A 100%)',
+    },
+    {
+      key: 'fat', label: 'Fat',
+      value: consumed.fat, target: targets.fat, pct: fPct, over: fOver,
+      gradient: 'linear-gradient(90deg, #A6CF77 0%, #C2E29A 100%)',
+    },
+  ]
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-100">
-      <div className="flex items-center justify-between px-4 py-2.5" style={{ backgroundColor: BRAND_GREEN }}>
-        <span className="text-[13px] font-semibold text-white">{dayName}</span>
-        <span className="text-[12px] text-green-200">
-          {mealsCount} {mealsCount === 1 ? 'meal' : 'meals'} logged
-        </span>
-      </div>
-
-      {/* Protein — dominant */}
-      <div className="px-4 pt-4 pb-3">
-        <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-[13px] font-semibold text-gray-700">Protein</span>
-          <div className="flex items-baseline gap-1">
-            <CountUp
-              target={consumed.protein}
-              duration={600}
-              reduced={reduced}
-              className="text-[22px] font-bold leading-none"
-              style={{ color: pColor }}
-            />
-            <span className="text-[12px] text-gray-400">/ {targets.protein}g</span>
-          </div>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-gray-100">
-          <motion.div
-            className="h-full rounded-full"
-            initial={false}
-            animate={{ width: `${pPct}%`, backgroundColor: pColor }}
-            transition={{ width: barT, backgroundColor: colorT }}
-          />
-        </div>
-      </div>
-
-      <div className="mx-4 h-px bg-gray-50" />
-
-      {/* Carbs + Fats — supporting */}
-      <div className="flex gap-5 px-4 py-3">
-        <div className="flex-1">
-          <div className="mb-1 flex items-baseline justify-between">
-            <span className="text-[11px] font-medium text-gray-400">Carbs</span>
-            <span className="text-[13px] font-semibold text-gray-700">
+    <div
+      className="rounded-2xl"
+      style={{
+        backgroundColor: '#FFFFFF',
+        padding: '16px 14px',
+        border: '1px solid #EEF0EE',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+      }}
+    >
+      <div className="flex gap-4">
+        {columns.map(col => (
+          <div key={col.key} className="flex min-w-0 flex-1 flex-col items-center text-center">
+            <div className="flex items-baseline justify-center gap-0.5">
               <CountUp
-                target={consumed.carbs}
+                target={col.value}
                 duration={600}
                 reduced={reduced}
-                style={cOver ? { color: TERRACOTTA } : undefined}
+                className="text-[15px] font-semibold leading-none"
+                style={{ color: col.over ? TERRACOTTA : '#1A1A1A' }}
               />
-              <span className="ml-0.5 text-[10px] font-normal text-gray-400">/{targets.carbs}g</span>
-            </span>
-          </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-            <motion.div
-              className="h-full rounded-full"
-              initial={false}
-              animate={{ width: `${cPct}%`, backgroundColor: cColor }}
-              transition={{ width: barT, backgroundColor: colorT }}
-            />
-          </div>
-        </div>
-        <div className="flex-1">
-          <div className="mb-1 flex items-baseline justify-between">
-            <span className="text-[11px] font-medium text-gray-400">Fats</span>
-            <span className="text-[13px] font-semibold text-gray-700">
-              <CountUp
-                target={consumed.fat}
-                duration={600}
-                reduced={reduced}
-                style={fOver ? { color: TERRACOTTA } : undefined}
+              <span className="text-[11px]" style={{ color: '#AEB4AE' }}>
+                /{col.target}g
+              </span>
+            </div>
+            <p className="mt-[5px] text-[10px]" style={{ color: '#9AA39C' }}>
+              {col.label}
+            </p>
+            <div
+              className="mt-[5px] overflow-hidden rounded-full"
+              style={{ width: 64, height: 6, backgroundColor: '#EDEFED' }}
+            >
+              <motion.div
+                className="h-full rounded-full"
+                initial={false}
+                animate={{ width: `${col.pct}%` }}
+                transition={barT}
+                style={{
+                  background: col.over ? TERRACOTTA : col.gradient,
+                }}
               />
-              <span className="ml-0.5 text-[10px] font-normal text-gray-400">/{targets.fat}g</span>
-            </span>
+            </div>
           </div>
-          <div className="h-1.5 overflow-hidden rounded-full bg-gray-100">
-            <motion.div
-              className="h-full rounded-full"
-              initial={false}
-              animate={{ width: `${fPct}%`, backgroundColor: fColor }}
-              transition={{ width: barT, backgroundColor: colorT }}
-            />
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   )
 }
 
 // ─── Thali ────────────────────────────────────────────────────────────────────
+type MealTier = 'green' | 'amber' | 'red'
+
+function mealTier(meal: LoggedMeal): MealTier {
+  const tags = meal.quality ?? []
+  if (tags.includes('sugary') || tags.includes('fried')) return 'red'
+  if (tags.includes('whole')) return 'green'
+  return 'amber'
+}
+
+const TIER_KATORI: Record<MealTier, { fill: string; ring: string; number: string }> = {
+  green: { fill: '#DCEFDF', ring: '#3A9E4B', number: '#2E7D3E' },
+  amber: { fill: '#FBEFD6', ring: '#E0A94A', number: '#B9822E' },
+  red:   { fill: '#FADCDC', ring: '#D96A6A', number: '#C45A5A' },
+}
+
 function Thali({
-  zone, display, filledCount, newlyFilledIdx, reduced,
+  zone, display, meals, newlyFilledIdx, reduced,
 }: {
   zone:            DayZone
   display:         ZoneDisplay
-  filledCount:     number
+  meals:           LoggedMeal[]
   newlyFilledIdx:  number | null
   reduced:         boolean
 }) {
+  // Chronological: oldest first so the first meal fills the first katori
+  const chronoMeals = useMemo(
+    () => [...meals].sort((a, b) => a.timestamp - b.timestamp),
+    [meals],
+  )
+  const filledCount = chronoMeals.length
   // Always at least 6 rim slots; grow so every logged meal has a bowl
   const slotCount = Math.max(6, filledCount)
   const positions = katoriPositions(slotCount)
   const sizePx    = katoriSizePx(slotCount)
   const visual    = ZONE_VISUAL[zone]
+  const showCal   = sizePx >= 34
 
   const colorT = reduced
     ? { duration: 0 }
     : { duration: 0.4, ease: 'easeOut' as const }
 
-  const filledBg  = `rgba(${visual.glowRgb},0.14)`
-  const emptyBorder = `1.5px dashed rgba(${visual.glowRgb},0.28)`
+  const emptyBorder = '1.5px dashed #D1D5DB'
   const plateBg = `radial-gradient(circle, rgba(${visual.glowRgb},0.07) 0%, rgba(${visual.glowRgb},0.03) 65%, transparent 100%)`
   const plateShadow = `0 0 72px 28px rgba(${visual.glowRgb},${visual.glowStrength})`
 
@@ -527,9 +530,12 @@ function Thali({
 
         {/* Katoris — outer div = position, inner motion.div = spring/fade */}
         {positions.map((pos, i) => {
-          const isFilled      = i < filledCount
+          const meal          = chronoMeals[i]
+          const isFilled      = !!meal
           const isNewlyFilled = i === newlyFilledIdx
           const isNew         = isNewlyFilled && !reduced
+          const tier          = meal ? mealTier(meal) : null
+          const colors        = tier ? TIER_KATORI[tier] : null
 
           const kInit = isNewlyFilled && reduced ? { opacity: 0 }
                       : isNew                   ? { scale: 0, opacity: 0 }
@@ -547,15 +553,32 @@ function Thali({
               style={{ top: pos.top, left: pos.left, transform: 'translate(-50%,-50%)' }}
             >
               <AnimatePresence mode="wait">
-                {isFilled ? (
+                {isFilled && colors ? (
                   <motion.div
-                    key="filled"
-                    className="rounded-full"
-                    style={{ width: sizePx, height: sizePx, backgroundColor: filledBg }}
+                    key={meal.id}
+                    className="flex items-center justify-center rounded-full"
+                    style={{
+                      width: sizePx,
+                      height: sizePx,
+                      backgroundColor: colors.fill,
+                      border: `1.5px solid ${colors.ring}`,
+                    }}
                     initial={kInit}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={kTransition}
-                  />
+                  >
+                    {showCal && (
+                      <span
+                        className="font-semibold leading-none"
+                        style={{
+                          fontSize: sizePx >= 42 ? 12 : 11,
+                          color: colors.number,
+                        }}
+                      >
+                        {meal.calories}
+                      </span>
+                    )}
+                  </motion.div>
                 ) : (
                   <motion.div
                     key="empty"
@@ -684,6 +707,98 @@ function fadeUp(delay: number, reduced: boolean) {
   }
 }
 
+// ─── 7-day week strip (Mon→Sun, ring-outline cells) ───────────────────────────
+const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+const AMBER_RING  = '#E0A94A'
+const AMBER_FILL  = '#FCF6EC'
+const AMBER_TEXT  = '#B9822E'
+const HIT_FILL    = '#F1F9F2'
+const EMPTY_RING  = '#E8E8E6'
+const LABEL_GREY  = '#B8BEB9'
+
+function toDateKey(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function parseLocalDate(dateKey: string): Date {
+  const [y, m, d] = dateKey.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
+function WeekStrip({ week }: { week: DailyRecord[] }) {
+  const todayStr = toDateKey(new Date())
+
+  return (
+    <div className="flex w-full items-start justify-between px-5">
+      {week.map(record => {
+        const d        = parseLocalDate(record.date)
+        const letter   = DAY_LETTERS[d.getDay()]
+        const dayNum   = d.getDate()
+        const isToday  = record.date === todayStr
+        const isFuture = record.date > todayStr
+        const isHit    = record.hitCalorieGoal
+        const isMiss   = record.mealCount > 0 && !record.hitCalorieGoal
+        // isEmpty = mealCount === 0 && !isFuture — used as the remaining case
+
+        let circleStyle: React.CSSProperties
+        let numberColor: string
+
+        if (isToday) {
+          // Today overrides all other states — solid green, in progress
+          circleStyle = { backgroundColor: BRAND_GREEN }
+          numberColor = '#FFFFFF'
+        } else if (isFuture) {
+          circleStyle = {
+            border: `1.5px solid ${EMPTY_RING}`,
+            opacity: 0.5,
+          }
+          numberColor = '#D1D5DB' // gray-300
+        } else if (isHit) {
+          circleStyle = {
+            border: `2px solid ${BRAND_GREEN}`,
+            backgroundColor: HIT_FILL,
+          }
+          numberColor = BRAND_GREEN
+        } else if (isMiss) {
+          circleStyle = {
+            border: `2px solid ${AMBER_RING}`,
+            backgroundColor: AMBER_FILL,
+          }
+          numberColor = AMBER_TEXT
+        } else {
+          // empty past day
+          circleStyle = { border: `1.5px solid ${EMPTY_RING}` }
+          numberColor = '#9CA3AF' // gray-400
+        }
+
+        return (
+          <div key={record.date} className="flex flex-col items-center gap-1.5">
+            <span
+              className="text-[9px]"
+              style={{
+                color: isToday ? BRAND_GREEN : LABEL_GREY,
+                fontWeight: isToday ? 600 : 400,
+              }}
+            >
+              {letter}
+            </span>
+            <div
+              className="flex h-[30px] w-[30px] items-center justify-center rounded-full text-[13px] font-semibold"
+              style={{ ...circleStyle, color: numberColor }}
+            >
+              {dayNum}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ─── Today screen ─────────────────────────────────────────────────────────────
 export default function Today() {
   const prefersReduced = useReducedMotion() ?? false
@@ -715,6 +830,7 @@ export default function Today() {
   }
 
   const meals     = useMemo(() => getTodaysMeals(), [mealVersion])
+  const week      = useMemo(() => getWeekRecords(), [mealVersion])
   const consumed  = sumMacros(meals)
   // Zone is derived fresh every render from today's meals + clock — never stored
   const now       = new Date()
@@ -772,29 +888,37 @@ export default function Today() {
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
     >
-      {/* Header */}
-      <motion.div
-        className="flex flex-shrink-0 items-center justify-between px-5 pb-4"
+      {/* Top block: header + week strip */}
+      <div
+        className="flex-shrink-0"
         style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 20px)' }}
-        {...fadeUp(0, prefersReduced)}
       >
-        <div className="flex items-center gap-3">
-          <AvatarIcon />
-          <div>
-            {name ? (
-              <>
-                <p className="text-[11px] text-gray-400">{greeting}</p>
-                <p className="text-[16px] font-semibold leading-tight text-gray-900">{name}</p>
-              </>
-            ) : (
-              <p className="text-[16px] font-semibold text-gray-900">{greeting} 👋</p>
-            )}
+        <motion.div
+          className="flex items-center justify-between px-5 pb-3"
+          {...fadeUp(0, prefersReduced)}
+        >
+          <div className="flex items-center gap-3">
+            <AvatarIcon />
+            <div>
+              {name ? (
+                <>
+                  <p className="text-[11px] text-gray-400">{greeting}</p>
+                  <p className="text-[16px] font-semibold leading-tight text-gray-900">{name}</p>
+                </>
+              ) : (
+                <p className="text-[16px] font-semibold text-gray-900">{greeting} 👋</p>
+              )}
+            </div>
           </div>
-        </div>
-        <button type="button" aria-label="View history" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50">
-          <HistoryIcon />
-        </button>
-      </motion.div>
+          <button type="button" aria-label="View history" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-50">
+            <HistoryIcon />
+          </button>
+        </motion.div>
+
+        <motion.div className="pb-4" {...fadeUp(0.02, prefersReduced)}>
+          <WeekStrip week={week} />
+        </motion.div>
+      </div>
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto">
@@ -818,7 +942,7 @@ export default function Today() {
             <Thali
               zone={zone}
               display={display}
-              filledCount={meals.length}
+              meals={meals}
               newlyFilledIdx={newKatoriIdx}
               reduced={prefersReduced}
             />
