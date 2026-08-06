@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { OnboardingProvider } from './context/OnboardingContext'
+import { AuthProvider } from './context/AuthContext'
 import Splash          from './pages/Splash'
 import Intro           from './pages/Intro'
 import BodyBasics      from './pages/onboarding/BodyBasics'
@@ -13,6 +14,7 @@ import Goal              from './pages/onboarding/Goal'
 import DietPreference    from './pages/onboarding/DietPreference'
 import FoodPrep          from './pages/onboarding/FoodPrep'
 import Results           from './pages/onboarding/Results'
+import CreateAccount   from './pages/CreateAccount'
 import Today           from './pages/Today'
 import AddMeal         from './pages/AddMeal'
 import DevReset        from './components/DevReset'
@@ -37,6 +39,7 @@ function AnimatedRoutes() {
         <Route path="/onboarding/diet-preference"   element={<DietPreference />} />
         <Route path="/onboarding/food-prep"         element={<FoodPrep />} />
         <Route path="/onboarding/results"           element={<Results />} />
+        <Route path="/create-account"         element={<CreateAccount />} />
         <Route path="/today"                  element={<Today />} />
         <Route path="/add-meal"               element={<AddMeal />} />
       </Routes>
@@ -46,13 +49,16 @@ function AnimatedRoutes() {
 
 export default function App() {
   return (
-    // OnboardingProvider wraps the whole app so any screen can read/write
+    // AuthProvider makes login state available app-wide (no route guards yet).
+    // OnboardingProvider wraps the rest so any screen can read/write
     // the collected onboarding data without prop-drilling.
-    <OnboardingProvider>
-      <BrowserRouter>
-        <AnimatedRoutes />
-        <DevReset />
-      </BrowserRouter>
-    </OnboardingProvider>
+    <AuthProvider>
+      <OnboardingProvider>
+        <BrowserRouter>
+          <AnimatedRoutes />
+          <DevReset />
+        </BrowserRouter>
+      </OnboardingProvider>
+    </AuthProvider>
   )
 }

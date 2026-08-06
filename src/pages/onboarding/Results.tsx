@@ -283,7 +283,7 @@ export default function Results() {
             key="reveal"
             data={data}
             targets={targets}
-            onStart={() => navigate('/today')}
+            onStart={() => navigate('/create-account')}
             doAnimate={!prefersReduced}
           />
         )}

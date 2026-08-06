@@ -116,7 +116,7 @@ function InputState({ onSubmit, errorMsg, defaultValue, onQuickLog }: InputState
       transition={{ duration: 0.22, ease: 'easeOut' }}
     >
       <p className="mb-1 text-[22px] font-bold text-gray-900">What did you eat?</p>
-      <p className="mb-5 text-[14px] text-gray-400">Describe in a few words — we'll figure out the rest.</p>
+      <p className="mb-5 text-[14px] text-gray-400">Describe in a few words, we'll figure out the rest.</p>
 
       {/* Text area */}
       <div className="rounded-2xl bg-gray-50 px-4 py-3.5">
