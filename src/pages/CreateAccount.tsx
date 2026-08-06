@@ -56,8 +56,7 @@ export default function CreateAccount() {
   const [params] = useSearchParams()
   const prefersReduced = useReducedMotion() ?? false
   const { data } = useOnboarding()
-  // Available for future guards; session updates via AuthProvider on signup/login
-  useAuth()
+  const { setSignupInProgress } = useAuth()
 
   const [mode, setMode] = useState<'signup' | 'login'>(
     params.get('mode') === 'login' ? 'login' : 'signup',
@@ -67,38 +66,52 @@ export default function CreateAccount() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [saveFailed, setSaveFailed] = useState(false)
 
   const isSignup = mode === 'signup'
   const canSubmit = email.trim().length > 0 && password.length >= 6 && !submitting
 
-  async function saveOnboardingToDb(userId: string) {
-    try {
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: userId,
-        name: null,
-        goal: data.goal,
-        trains: data.workoutFrequency !== 'No' && data.workoutFrequency != null,
-      })
-      if (profileError) console.error('Failed to save profile:', profileError)
-
-      if (data.targets) {
-        const { error: targetsError } = await supabase.from('targets').insert({
-          user_id: userId,
-          calories: data.targets.calories,
-          protein:  data.targets.protein,
-          carbs:    data.targets.carbs,
-          fat:      data.targets.fat,
-        })
-        if (targetsError) console.error('Failed to save targets:', targetsError)
-      }
-    } catch (err) {
-      console.error('Failed to save onboarding data:', err)
+  async function saveOnboardingToDb(
+    userId: string,
+  ): Promise<{ ok: true } | { ok: false; reason: string }> {
+    if (!data.targets) {
+      const reason = 'Your targets are missing. Please redo onboarding.'
+      console.error('Failed to save targets:', reason)
+      return { ok: false, reason }
     }
+
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      id: userId,
+      name: null,
+      goal: data.goal,
+      trains: data.workoutFrequency !== 'No' && data.workoutFrequency != null,
+    })
+    if (profileError) {
+      console.error('Failed to save profile:', profileError)
+      return { ok: false, reason: profileError.message }
+    }
+
+    const { error: targetsError } = await supabase.from('targets').insert({
+      user_id: userId,
+      calories: data.targets.calories,
+      protein:  data.targets.protein,
+      carbs:    data.targets.carbs,
+      fat:      data.targets.fat,
+    })
+    if (targetsError) {
+      console.error('Failed to save targets:', targetsError)
+      return { ok: false, reason: targetsError.message }
+    }
+
+    return { ok: true }
   }
 
   async function handleSignup() {
+    setSignupInProgress(true)
     setError(null)
+    setSaveFailed(false)
     setSubmitting(true)
+    let succeeded = false
     try {
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: email.trim(),
@@ -115,9 +128,42 @@ export default function CreateAccount() {
         return
       }
       // Session exists — safe to write onboarding data
-      if (authData.user?.id) {
-        await saveOnboardingToDb(authData.user.id)
+      if (!authData.user?.id) {
+        setError("Couldn't finish signup — please try again.")
+        setSaveFailed(true)
+        return
       }
+      const result = await saveOnboardingToDb(authData.user.id)
+      if (!result.ok) {
+        setError(result.reason)
+        setSaveFailed(true)
+        return
+      }
+      succeeded = true
+      navigate('/today')
+    } finally {
+      setSubmitting(false)
+      if (succeeded) setSignupInProgress(false)
+    }
+  }
+
+  async function handleRetrySave() {
+    setError(null)
+    setSubmitting(true)
+    try {
+      const uid = (await supabase.auth.getUser()).data.user?.id
+      if (!uid) {
+        setError("Couldn't find your account — please try logging in.")
+        return
+      }
+      const result = await saveOnboardingToDb(uid)
+      if (!result.ok) {
+        setError(result.reason)
+        setSaveFailed(true)
+        return
+      }
+      setSaveFailed(false)
+      setSignupInProgress(false)
       navigate('/today')
     } finally {
       setSubmitting(false)
@@ -350,16 +396,28 @@ export default function CreateAccount() {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="mt-2 flex h-[52px] w-full items-center justify-center rounded-2xl text-[16px] font-semibold text-white transition-opacity disabled:opacity-40"
-            style={{ backgroundColor: BRAND_GREEN }}
-          >
-            {submitting
-              ? (isSignup ? 'Creating…' : 'Logging in…')
-              : (isSignup ? 'Create account' : 'Log in')}
-          </button>
+          {saveFailed ? (
+            <button
+              type="button"
+              onClick={() => void handleRetrySave()}
+              disabled={submitting}
+              className="mt-2 flex h-[52px] w-full items-center justify-center rounded-2xl text-[16px] font-semibold text-white transition-opacity disabled:opacity-40"
+              style={{ backgroundColor: BRAND_GREEN }}
+            >
+              {submitting ? 'Saving…' : 'Try again'}
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="mt-2 flex h-[52px] w-full items-center justify-center rounded-2xl text-[16px] font-semibold text-white transition-opacity disabled:opacity-40"
+              style={{ backgroundColor: BRAND_GREEN }}
+            >
+              {submitting
+                ? (isSignup ? 'Creating…' : 'Logging in…')
+                : (isSignup ? 'Create account' : 'Log in')}
+            </button>
+          )}
         </form>
 
         <p className="mt-5 text-center text-[14px] text-gray-500">

@@ -6,13 +6,22 @@ interface AuthCtxType {
   session: Session | null
   user:    User | null
   loading: boolean
+  signupInProgress: boolean
+  setSignupInProgress: (v: boolean) => void
 }
 
-const AuthCtx = createContext<AuthCtxType>({ session: null, user: null, loading: true })
+const AuthCtx = createContext<AuthCtxType>({
+  session: null,
+  user: null,
+  loading: true,
+  signupInProgress: false,
+  setSignupInProgress: () => {},
+})
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [signupInProgress, setSignupInProgress] = useState(false)
 
   useEffect(() => {
     // Get the current session on mount (restores login across refreshes)
@@ -28,7 +37,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthCtx.Provider value={{ session, user: session?.user ?? null, loading }}>
+    <AuthCtx.Provider value={{
+      session,
+      user: session?.user ?? null,
+      loading,
+      signupInProgress,
+      setSignupInProgress,
+    }}>
       {children}
     </AuthCtx.Provider>
   )
