@@ -79,13 +79,31 @@ function CameraIcon() {
   )
 }
 
+function Spinner({ size = 18 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className="animate-spin"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 // ── State 1: Input ─────────────────────────────────────────────────────────────
 interface InputStateProps {
   onSubmit:     (text: string) => void
   errorMsg:     string | null
   defaultValue: string
   // Instant-log a frequent cached meal (no confirm, no API).
-  onQuickLog:   (meal: CachedMeal) => void
+  onQuickLog:   (meal: CachedMeal) => void | Promise<void>
+  /** True while a chip quick-log insert is in flight */
+  quickLogging?: boolean
 }
 
 function truncateChipName(name: string, max = 14): string {
@@ -93,7 +111,7 @@ function truncateChipName(name: string, max = 14): string {
   return name.slice(0, max).trimEnd() + '…'
 }
 
-function InputState({ onSubmit, errorMsg, defaultValue, onQuickLog }: InputStateProps) {
+function InputState({ onSubmit, errorMsg, defaultValue, onQuickLog, quickLogging = false }: InputStateProps) {
   const [value, setValue] = useState(defaultValue)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [frequent, setFrequent] = useState<CachedMeal[]>([])
@@ -154,13 +172,16 @@ function InputState({ onSubmit, errorMsg, defaultValue, onQuickLog }: InputState
 
       {/* Frequent-meal quick-log chips — shortcut only, no empty state */}
       {frequent.length > 0 && (
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div
+          className={`mt-3 flex gap-2 overflow-x-auto pb-0.5 transition-opacity [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${quickLogging ? 'pointer-events-none opacity-40' : ''}`}
+        >
           {frequent.map(meal => (
             <button
               key={`${meal.name}-${meal.calories}-${meal.lastUsed}`}
               type="button"
+              disabled={quickLogging}
               onClick={() => onQuickLog(meal)}
-              className="flex-shrink-0 rounded-full border border-green-100 px-3 py-1.5 text-left"
+              className="flex-shrink-0 rounded-full border border-green-100 px-3 py-1.5 text-left disabled:cursor-not-allowed"
               style={{ backgroundColor: 'rgba(28,124,46,0.08)' }}
             >
               <span className="text-[13px] font-medium" style={{ color: BRAND_GREEN }}>
@@ -176,7 +197,7 @@ function InputState({ onSubmit, errorMsg, defaultValue, onQuickLog }: InputState
       <div className="mt-4">
         <button
           type="button"
-          disabled={!value.trim()}
+          disabled={!value.trim() || quickLogging}
           onClick={handleSubmit}
           className="flex h-12 w-full items-center justify-center gap-1.5 rounded-2xl text-[16px] font-semibold text-white transition-opacity disabled:opacity-40"
           style={{ backgroundColor: BRAND_GREEN }}
@@ -226,7 +247,7 @@ function ConfirmState({
   originalInput,
 }: {
   estimate:       MealEstimate
-  onLog:          (meal: MealEstimate) => void
+  onLog:          (meal: MealEstimate) => void | Promise<void>
   onBack:         () => void
   // When true the user arrived via the manual path — calories and protein
   // start empty so they can type their own values rather than editing a 0.
@@ -238,13 +259,15 @@ function ConfirmState({
   const [name,     setName]     = useState(estimate.name)
   const [calories, setCalories] = useState(manual ? '' : String(estimate.calories))
   const [protein,  setProtein]  = useState(manual ? '' : String(estimate.protein))
+  const [logging,  setLogging]  = useState(false)
 
   // Calories must be a positive integer to log. Protein may be 0 or empty.
   const calorieVal = parseInt(calories) || 0
   const canLog     = calorieVal > 0
 
-  const handleLog = () => {
-    if (!canLog) return
+  const handleLog = async () => {
+    if (!canLog || logging) return
+    setLogging(true)
     const meal = {
       name:     name.trim() || estimate.name,
       calories: calorieVal,
@@ -254,10 +277,10 @@ function ConfirmState({
       sugar:    estimate.sugar,
       quality:  estimate.quality,
     }
-    onLog(meal)
-    // Cache under the user's typed text so future lookups match their input.
-    // Uses the confirmed/edited values (same as what was logged).
+    await onLog(meal)          // onLog is now async (awaits addMeal)
     cacheMeal(originalInput, meal)
+    // If write failed, sheet stays open — re-enable the button
+    setLogging(false)
   }
 
   return (
@@ -275,7 +298,8 @@ function ConfirmState({
         <button
           type="button"
           onClick={onBack}
-          className="text-[16px] font-semibold"
+          disabled={logging}
+          className="text-[16px] font-semibold disabled:opacity-40"
           style={{ color: BRAND_GREEN }}
         >
           Start over
@@ -289,7 +313,8 @@ function ConfirmState({
           type="text"
           value={name}
           onChange={e => setName(e.target.value)}
-          className="w-full bg-transparent text-[18px] font-semibold text-gray-900 outline-none"
+          disabled={logging}
+          className="w-full bg-transparent text-[18px] font-semibold text-gray-900 outline-none disabled:opacity-60"
         />
         {estimate.quality?.length > 0 && (
           <div className="mt-2">
@@ -310,7 +335,8 @@ function ConfirmState({
             pattern="[0-9]*"
             value={calories}
             onChange={e => setCalories(e.target.value.replace(/[^0-9]/g, ''))}
-            className="w-full bg-transparent text-center text-[32px] font-bold leading-none text-gray-900 outline-none"
+            disabled={logging}
+            className="w-full bg-transparent text-center text-[32px] font-bold leading-none text-gray-900 outline-none disabled:opacity-60"
           />
           <p className="mt-1 text-[12px] text-gray-400">kcal</p>
         </div>
@@ -322,7 +348,8 @@ function ConfirmState({
             pattern="[0-9]*"
             value={protein}
             onChange={e => setProtein(e.target.value.replace(/[^0-9]/g, ''))}
-            className="w-full bg-transparent text-center text-[32px] font-bold leading-none text-gray-900 outline-none"
+            disabled={logging}
+            className="w-full bg-transparent text-center text-[32px] font-bold leading-none text-gray-900 outline-none disabled:opacity-60"
           />
           <p className="mt-1 text-[12px] text-gray-400">grams</p>
         </div>
@@ -337,13 +364,22 @@ function ConfirmState({
       <motion.button
         type="button"
         onClick={handleLog}
-        disabled={!canLog}
-        className="h-14 w-full rounded-2xl text-[17px] font-semibold tracking-wide text-white transition-opacity disabled:opacity-40"
+        disabled={!canLog || logging}
+        className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-[17px] font-semibold tracking-wide text-white transition-opacity disabled:opacity-40"
         style={{ backgroundColor: BRAND_GREEN }}
-        whileTap={reduced || !canLog ? {} : { scale: 0.97 }}
+        whileTap={reduced || !canLog || logging ? {} : { scale: 0.97 }}
         transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       >
-        {canLog ? 'Log it' : 'Add calories to log'}
+        {logging ? (
+          <>
+            <Spinner size={18} />
+            Logging…
+          </>
+        ) : canLog ? (
+          'Log it'
+        ) : (
+          'Add calories to log'
+        )}
       </motion.button>
     </motion.div>
   )
@@ -369,6 +405,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
   // frequent chips are the no-API fallback. To re-enable: setEstimate from lastInput
   // with zeros, setIsManual(true), setState('confirm').
   const [isManual,       setIsManual]       = useState(false)
+  const [quickLogging,   setQuickLogging]   = useState(false)
 
   // Incremented on every new request and on close. Any in-flight promise
   // that resolves after the id has changed is silently discarded.
@@ -386,18 +423,21 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
   }
 
   // Instant chip-log — no confirm, no API. Undo toast is offered via onLogged.
-  const handleQuickLog = (cached: CachedMeal) => {
-    const record = addMeal({
-      name:     cached.name,
-      calories: cached.calories,
-      protein:  cached.protein,
-      carbs:    cached.carbs,
-      fat:      cached.fat,
-      sugar:    cached.sugar,
-      quality:  cached.quality,
+  const handleQuickLog = async (cached: CachedMeal) => {
+    if (quickLogging) return
+    setQuickLogging(true)
+    const record = await addMeal({
+      name: cached.name, calories: cached.calories, protein: cached.protein,
+      carbs: cached.carbs, fat: cached.fat, sugar: cached.sugar,
+      quality: cached.quality,
     })
+    if (!record) {
+      console.error('quick-log failed')
+      setQuickLogging(false)
+      return
+    }
     mealLoggedRef.current  = true
-    instantUndoRef.current = record
+    instantUndoRef.current = record   // now a real LoggedMeal, not a promise
     resetAndClose()
   }
 
@@ -474,9 +514,10 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
     }
   }
 
-  const handleLog = (meal: MealEstimate) => {
-    addMeal(meal)
-    mealLoggedRef.current  = true   // onExitComplete will fire onLogged after sheet exits
+  const handleLog = async (meal: MealEstimate) => {
+    const record = await addMeal(meal)
+    if (!record) { console.error('log failed'); return }
+    mealLoggedRef.current  = true
     instantUndoRef.current = null   // normal confirm-log — no undo toast
     resetAndClose()
   }
@@ -495,6 +536,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
     setErrorMsg(null)
     setLastInput('')
     setIsManual(false)
+    setQuickLogging(false)
     // Fire the "meal was logged" callback now that the plate is visible.
     if (mealLoggedRef.current) {
       mealLoggedRef.current = false
@@ -546,6 +588,7 @@ export default function AddMealSheet({ isOpen, onClose, onLogged }: AddMealSheet
                   errorMsg={errorMsg}
                   defaultValue={lastInput}
                   onQuickLog={handleQuickLog}
+                  quickLogging={quickLogging}
                 />
               )}
               {state === 'estimating' && (

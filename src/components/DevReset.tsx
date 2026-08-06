@@ -176,11 +176,11 @@ function DevResetInner() {
 }
 
 // ── Guard wrapper — this is the only export ────────────────────────────────────
-// The `if (!DEV) return null` is evaluated at build time.  Rollup sees a constant
-// false, removes the `return <DevResetInner />` branch, and since DevResetInner
-// is then unreferenced it is dropped from the bundle entirely.
+// Hidden in production builds. In DEV, also requires localStorage disc_debug=1
+// so the normal local view stays clean: localStorage.setItem('disc_debug','1')
 
 export default function DevReset() {
   if (!import.meta.env.DEV) return null
+  if (localStorage.getItem('disc_debug') !== '1') return null
   return <DevResetInner />
 }

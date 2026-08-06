@@ -57,17 +57,15 @@ function toDateKey(date: Date): string {
   return `${y}-${m}-${d}`
 }
 
-/** Meals on a local calendar day — same start/end window as getMealsForDate. */
-function mealsForDate(date: Date): LoggedMeal[] {
+/** Pure: compute a day's record from an already-fetched meals array. */
+function computeDailyRecord(
+  meals: LoggedMeal[],
+  date: Date,
+  targets: MacroTargets,
+): DailyRecord {
   const start = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
   const end   = start + 24 * 60 * 60 * 1000
-  return getMeals().filter(m => m.timestamp >= start && m.timestamp < end)
-}
-
-/** Compute a single day's nutrition record from logged meals. */
-export function getDailyRecord(date: Date): DailyRecord {
-  const meals   = mealsForDate(date)
-  const targets = loadTargets()
+  const dayMeals = meals.filter(m => m.timestamp >= start && m.timestamp < end)
 
   let totalCals    = 0
   let totalProtein = 0
@@ -76,7 +74,7 @@ export function getDailyRecord(date: Date): DailyRecord {
   let totalSugar   = 0
   const qualityTagCounts: Record<string, number> = {}
 
-  for (const m of meals) {
+  for (const m of dayMeals) {
     totalCals    += m.calories ?? 0
     totalProtein += m.protein  ?? 0
     totalCarbs   += m.carbs    ?? 0
@@ -87,7 +85,7 @@ export function getDailyRecord(date: Date): DailyRecord {
     }
   }
 
-  const mealCount = meals.length
+  const mealCount = dayMeals.length
   const target    = targets.calories
   const hitCalorieGoal =
     mealCount > 0 && Math.abs(totalCals - target) <= target * 0.10
@@ -111,11 +109,22 @@ export function getDailyRecord(date: Date): DailyRecord {
   }
 }
 
+/** Compute a single day's nutrition record from logged meals. */
+export async function getDailyRecord(date: Date): Promise<DailyRecord> {
+  const meals = await getMeals()
+  const targets = loadTargets()
+  return computeDailyRecord(meals, date, targets)
+}
+
 /**
  * Fixed Monday–Sunday week records.
  * weekOffset 0 = the Mon–Sun containing today; -1 = previous week, etc.
+ * Fetches meals once, then computes all 7 days in memory.
  */
-export function getWeekRecords(weekOffset = 0): DailyRecord[] {
+export async function getWeekRecords(weekOffset = 0): Promise<DailyRecord[]> {
+  const meals = await getMeals()
+  const targets = loadTargets()
+
   const today = new Date()
   // Anchor in the requested week (today shifted by weekOffset × 7 days)
   const anchor = new Date(
@@ -140,7 +149,7 @@ export function getWeekRecords(weekOffset = 0): DailyRecord[] {
       monday.getMonth(),
       monday.getDate() + i,
     )
-    records.push(getDailyRecord(d))
+    records.push(computeDailyRecord(meals, d, targets))
   }
   return records
 }

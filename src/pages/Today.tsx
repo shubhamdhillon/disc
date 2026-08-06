@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, animate } from 'framer-motion'
 import AddMealSheet from '../components/AddMealSheet'
 import QualityIcons from '../components/QualityIcons'
@@ -933,6 +934,7 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
 // ─── Today screen ─────────────────────────────────────────────────────────────
 export default function Today() {
   const prefersReduced = useReducedMotion() ?? false
+  const navigate       = useNavigate()
   const targets        = loadTargets()
   const dayName        = WEEKDAYS[new Date().getDay()]
   const greeting       = getGreeting()
@@ -960,8 +962,18 @@ export default function Today() {
     setName(n)
   }
 
-  const meals     = useMemo(() => getTodaysMeals(), [mealVersion])
-  const week      = useMemo(() => getWeekRecords(), [mealVersion])
+  const [meals, setMeals] = useState<LoggedMeal[]>([])
+  const [week,  setWeek]  = useState<DailyRecord[]>([])
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const [m, w] = await Promise.all([getTodaysMeals(), getWeekRecords()])
+      if (active) { setMeals(m); setWeek(w) }
+    })()
+    return () => { active = false }
+  }, [mealVersion])
+
   const consumed  = sumMacros(meals)
   // Zone is derived fresh every render from today's meals + clock — never stored
   const now       = new Date()
@@ -990,21 +1002,21 @@ export default function Today() {
     }
   }
 
-  const handleDeleteMeal = (meal: LoggedMeal) => {
-    removeMeal(meal.id)
+  const handleDeleteMeal = async (meal: LoggedMeal) => {
+    await removeMeal(meal.id)
     setMealVersion(v => v + 1)
     showUndoToast('deleted', meal)
   }
 
-  const handleUndo = () => {
+  const handleUndo = async () => {
     if (!undoToast) return
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
     katoriTimerRef.current.forEach(clearTimeout)
     katoriTimerRef.current = []
     if (undoToast.action === 'logged') {
-      removeMeal(undoToast.meal.id)
+      await removeMeal(undoToast.meal.id)
     } else {
-      restoreMeal(undoToast.meal)
+      await restoreMeal(undoToast.meal)
     }
     setUndoToast(null)
     setNewKatoriIdx(null)
@@ -1029,7 +1041,14 @@ export default function Today() {
           {...fadeUp(0, prefersReduced)}
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
-            <AvatarIcon />
+            <button
+              type="button"
+              aria-label="Open settings"
+              onClick={() => navigate('/settings')}
+              className="flex-shrink-0 rounded-full"
+            >
+              <AvatarIcon />
+            </button>
             <p className="min-w-0 truncate text-[15px] font-semibold leading-tight text-gray-900">
               {name ? `${greeting}, ${name}` : greeting}
             </p>
