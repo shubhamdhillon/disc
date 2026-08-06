@@ -92,8 +92,10 @@ function DevResetInner() {
       {logOpen && (
         <div style={{
           maxHeight:            '360px',
-          width:                '318px',
+          width:                'min(318px, calc(100vw - 32px))',
+          maxWidth:             '100%',
           overflowY:            'auto',
+          overflowX:            'hidden',
           background:           'rgba(10,10,12,0.93)',
           backdropFilter:       'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',

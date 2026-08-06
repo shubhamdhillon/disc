@@ -20,6 +20,14 @@ export interface LoggedMeal {
 
 const STORAGE_KEY = 'disc_meals'
 
+/** UUID when available; fallback for non-secure contexts (HTTP on LAN). */
+function makeId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10)
+}
+
 // ── Read ──────────────────────────────────────────────────────────────────────
 
 /** All logged meals, newest first. */
@@ -54,7 +62,7 @@ export function addMeal(
     ...meal,
     sugar:     meal.sugar   ?? 0,
     quality:   meal.quality ?? [],
-    id:        crypto.randomUUID(),
+    id:        makeId(),
     timestamp: Date.now(),
   }
   const existing = getMeals()

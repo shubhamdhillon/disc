@@ -3,7 +3,6 @@ import { AnimatePresence } from 'framer-motion'
 import { OnboardingProvider } from './context/OnboardingContext'
 import Splash          from './pages/Splash'
 import Intro           from './pages/Intro'
-import OnboardingIntro from './pages/OnboardingIntro'
 import BodyBasics      from './pages/onboarding/BodyBasics'
 import WorkDay           from './pages/onboarding/WorkDay'
 import Steps             from './pages/onboarding/Steps'
@@ -26,9 +25,8 @@ function AnimatedRoutes() {
         <Route path="/"                       element={<Navigate to="/splash" replace />} />
         <Route path="/splash"                 element={<Splash />} />
         <Route path="/intro"                  element={<Intro />} />
-        {/* /onboarding is the intro card ("Let's get to know you!") */}
-        <Route path="/onboarding"             element={<OnboardingIntro />} />
-        {/* /onboarding/body-basics is question screen 1 of 9 */}
+        {/* /onboarding redirects to first question — old "Let's get to know you" screen removed */}
+        <Route path="/onboarding"             element={<Navigate to="/onboarding/body-basics" replace />} />
         <Route path="/onboarding/body-basics" element={<BodyBasics />} />
         <Route path="/onboarding/work-day"   element={<WorkDay />} />
         <Route path="/onboarding/steps"             element={<Steps />} />

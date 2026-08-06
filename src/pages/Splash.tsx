@@ -59,7 +59,7 @@ export default function Splash() {
 
   return (
     <motion.div
-      className="relative flex h-dvh flex-col items-center justify-center overflow-hidden"
+      className="relative flex h-dvh w-full flex-col items-center justify-center overflow-hidden"
       style={{ backgroundColor: BRAND_GREEN }}
       initial={wrapperInitial}
       animate={{ opacity: 1 }}

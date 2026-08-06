@@ -280,9 +280,9 @@ function AvatarIcon() {
     <img
       src="/avatar.png"
       alt=""
-      width={38}
-      height={38}
-      className="h-[38px] w-[38px] flex-shrink-0 rounded-full object-cover"
+      width={40}
+      height={40}
+      className="h-10 w-10 flex-shrink-0 rounded-full object-cover"
       style={{ border: '1px solid rgba(0,0,0,0.06)' }}
     />
   )
@@ -290,10 +290,9 @@ function AvatarIcon() {
 
 function HistoryIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <polyline points="1 4 1 10 7 10" />
-      <path d="M3.51 15a9 9 0 1 0 .49-3.51" />
-      <polyline points="12 7 12 12 15.5 14" />
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3.5 2" />
     </svg>
   )
 }
@@ -725,9 +724,9 @@ function Thali({
         })}
 
         {/* Center number + sublabel */}
-        <div className="z-10 flex flex-col items-center px-6">
+        <div className="z-10 flex flex-col items-center px-8">
           <p
-            className="text-[42px] font-bold leading-none tracking-tight"
+            className="text-[32px] font-bold leading-none tracking-tight"
             style={{ color: display.numberColor }}
           >
             <CountUp
@@ -738,10 +737,10 @@ function Thali({
               style={{ color: display.numberColor }}
             />
             {display.showCalUnit && (
-              <span className="ml-1.5 text-[18px] font-medium text-gray-400">cal</span>
+              <span className="ml-1 text-[15px] font-medium text-gray-400">cal</span>
             )}
           </p>
-          <p className="mt-2 text-[13px] text-gray-400">{display.sublabel}</p>
+          <p className="mt-1.5 text-[12px] text-gray-400">{display.sublabel}</p>
         </div>
         </div>
       </div>
@@ -1014,7 +1013,7 @@ export default function Today() {
 
   return (
     <motion.div
-      className="relative flex h-dvh flex-col bg-white"
+      className="relative flex h-dvh w-full flex-col bg-white"
       initial={{ opacity: prefersReduced ? 1 : 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
@@ -1026,7 +1025,7 @@ export default function Today() {
         style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 20px)' }}
       >
         <motion.div
-          className="flex items-center justify-between gap-3 px-5 pb-2"
+          className="flex items-center justify-between gap-3 px-5 pb-5"
           {...fadeUp(0, prefersReduced)}
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -1035,7 +1034,7 @@ export default function Today() {
               {name ? `${greeting}, ${name}` : greeting}
             </p>
           </div>
-          <button type="button" aria-label="View history" className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-gray-50">
+          <button type="button" aria-label="View history" className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-50">
             <HistoryIcon />
           </button>
         </motion.div>
@@ -1045,7 +1044,7 @@ export default function Today() {
       <div className="flex-1 overflow-y-auto bg-transparent">
         {!name && <NamePrompt onSave={handleSetName} />}
 
-        <div className="flex flex-col gap-6 px-5 pb-4">
+        <div className="flex flex-col gap-6 px-5 pb-4 pt-2">
 
           {/* Week strip — transparent so plate halo can bleed behind */}
           <motion.div

@@ -130,7 +130,7 @@ export default function BodyBasics() {
 
   return (
     <motion.div
-      className="flex h-dvh flex-col bg-white"
+      className="flex h-dvh w-full flex-col bg-white"
       initial={{ opacity: prefersReduced ? 1 : 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}

@@ -8,6 +8,14 @@ import App from './App.tsx'
 // glance why a screen was skipped.  Also supports /?reset as a URL shortcut
 // (the floating "↺ reset flow" button does the same thing with one tap).
 if (import.meta.env.DEV) {
+  // Surface uncaught errors on real phones where DevTools isn't available
+  window.addEventListener('error', e => {
+    alert('JS Error: ' + e.message + '\n' + (e.filename || '') + ':' + (e.lineno || ''))
+  })
+  window.addEventListener('unhandledrejection', e => {
+    alert('Promise rejection: ' + ((e.reason as Error)?.message || e.reason))
+  })
+
   // URL-based reset (alternative to the on-screen button)
   if (new URLSearchParams(window.location.search).has('reset')) {
     sessionStorage.removeItem('disc_splash')
