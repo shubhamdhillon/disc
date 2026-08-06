@@ -1,4 +1,3 @@
-import { useMemo, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
 
@@ -9,16 +8,6 @@ const PRIMARY_TEXT = '#0F4D1A'
 export default function Intro() {
   const navigate = useNavigate()
   const prefersReduced = useReducedMotion() ?? false
-
-  // Check on mount only (useMemo with empty deps runs once per mount)
-  const hasSeen = useMemo(() => !!localStorage.getItem('disc_intro_seen'), [])
-
-  // If already seen, skip straight to first question with no flash
-  useEffect(() => {
-    if (hasSeen) navigate('/onboarding/body-basics', { replace: true })
-  }, [hasSeen, navigate])
-
-  if (hasSeen) return null
 
   const handleStartJourney = () => {
     localStorage.setItem('disc_intro_seen', '1')
