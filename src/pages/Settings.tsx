@@ -4,7 +4,6 @@ import { motion, useReducedMotion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
-const BRAND_GREEN = '#1C7C2E'
 const DANGER_RED = '#DC2626'
 
 function ChevronIcon() {

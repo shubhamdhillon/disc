@@ -49,7 +49,7 @@ function friendlyMessage(err: unknown, elapsedMs?: number): string {
     default:                    base = "Couldn't estimate right now — please try again."
   }
   if (import.meta.env.DEV) {
-    const parts = [err.code]
+    const parts: string[] = [err.code]
     if (err.httpStatus !== null) parts.push(`http ${err.httpStatus}`)
     if (elapsedMs !== undefined) parts.push(`${elapsedMs}ms`)
     base += `  [${parts.join(' · ')}]`
@@ -66,15 +66,6 @@ function StarIcon({ size = 44 }: { size?: number }) {
         d="M50 5 C47 32 32 47 5 50 C32 53 47 68 50 95 C53 68 68 53 95 50 C68 47 53 32 50 5Z"
         fill={BRAND_GREEN}
       />
-    </svg>
-  )
-}
-
-function CameraIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-      <circle cx="12" cy="13" r="4" />
     </svg>
   )
 }

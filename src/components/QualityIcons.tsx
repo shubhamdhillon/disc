@@ -42,7 +42,6 @@ export default function QualityIcons({
             strokeWidth={1.8}
             color={color}
             aria-label={label}
-            title={label}
           />
         )
       })}
