@@ -750,9 +750,7 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
         const dayNum   = d.getDate()
         const isToday  = record.date === todayStr
         const isFuture = record.date > todayStr
-        const isHit    = record.hitCalorieGoal
-        const isMiss   = record.mealCount > 0 && !record.hitCalorieGoal
-        // isEmpty = mealCount === 0 && !isFuture — used as the remaining case
+        const { verdict } = record
 
         let circleStyle: React.CSSProperties
         let numberColor: string
@@ -767,20 +765,26 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
             opacity: 0.5,
           }
           numberColor = '#D1D5DB' // gray-300
-        } else if (isHit) {
+        } else if (verdict === 'good') {
           circleStyle = {
             border: `1.5px solid ${BRAND_GREEN}`,
             backgroundColor: HIT_FILL,
           }
           numberColor = BRAND_GREEN
-        } else if (isMiss) {
+        } else if (verdict === 'warn') {
           circleStyle = {
             border: `1.5px solid ${AMBER_RING}`,
             backgroundColor: AMBER_FILL,
           }
           numberColor = AMBER_TEXT
+        } else if (verdict === 'bad') {
+          circleStyle = {
+            border: '1.5px solid #E11D48',
+            backgroundColor: 'transparent',
+          }
+          numberColor = '#E11D48'
         } else {
-          // empty past day
+          // empty past day (verdict === null)
           circleStyle = { border: `1.5px solid ${EMPTY_RING}` }
           numberColor = '#9CA3AF' // gray-400
         }

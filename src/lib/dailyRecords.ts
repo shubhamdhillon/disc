@@ -9,6 +9,7 @@
 
 import { getMeals, type LoggedMeal } from './mealsStore'
 import type { Targets } from './targetsStore'
+import { computeDayVerdict, type DayVerdict } from './dayVerdict'
 
 export interface DailyRecord {
   date: string              // 'YYYY-MM-DD' local
@@ -21,6 +22,8 @@ export interface DailyRecord {
   targetSnapshot: { calories: number; protein: number; carbs: number; fat: number }
   hitCalorieGoal: boolean   // true if totalCals within ±10% of target calories
   mealCount: number
+  /** null when no meals logged — nothing to judge */
+  verdict: DayVerdict['overall'] | null
 }
 
 /** Local calendar day as YYYY-MM-DD. */
@@ -64,6 +67,18 @@ function computeDailyRecord(
   const hitCalorieGoal =
     mealCount > 0 && Math.abs(totalCals - target) <= target * 0.10
 
+  let verdict: DayVerdict['overall'] | null = null
+  if (dayMeals.length > 0) {
+    const isToday = toDateKey(date) === toDateKey(new Date())
+    // Completed days are judged as if at end of day so the protein floor
+    // fully applies. Today is judged at the real current time because it
+    // is still in progress.
+    const judgeAt = isToday
+      ? new Date()
+      : new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59)
+    verdict = computeDayVerdict(dayMeals, targets, judgeAt).overall
+  }
+
   return {
     date: toDateKey(date),
     totalCals,
@@ -80,6 +95,7 @@ function computeDailyRecord(
     },
     hitCalorieGoal,
     mealCount,
+    verdict,
   }
 }
 
