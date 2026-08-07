@@ -143,3 +143,41 @@ export async function getWeekRecords(weekOffset: number, resolver: TargetsResolv
   }
   return records
 }
+
+/**
+ * All daily records for a calendar month (1..daysInMonth).
+ * Fetches meals once; each day uses targets active on that date.
+ */
+export async function getMonthRecords(
+  year: number,
+  month: number, // 0-indexed, matching Date.getMonth()
+  resolver: TargetsResolver,
+): Promise<DailyRecord[]> {
+  const meals = await getMeals()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+  const records: DailyRecord[] = []
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day)
+    const targetsForDay = resolver.forDate(d)
+    records.push(computeDailyRecord(meals, d, targetsForDay))
+  }
+  return records
+}
+
+/**
+ * Meals and derived record for a single local calendar day (detail view).
+ * Fetches meals once, then filters to that day.
+ */
+export async function getMealsAndRecordForDate(
+  date: Date,
+  resolver: TargetsResolver,
+): Promise<{ meals: LoggedMeal[]; record: DailyRecord }> {
+  const meals = await getMeals()
+  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+  const end   = start + 24 * 60 * 60 * 1000
+  const dayMeals = meals.filter(m => m.timestamp >= start && m.timestamp < end)
+  const record = computeDailyRecord(meals, date, resolver.forDate(date))
+  return { meals: dayMeals, record }
+}
+
