@@ -118,7 +118,7 @@ function DaySheet({
   )
   const slotCount = Math.max(6, chronoMeals.length)
   const positions = katoriPositions(slotCount)
-  const sizePx = 34
+  const sizePx = 32
 
   const dayVerdict = useMemo(() => {
     if (!record || meals.length === 0) return null
@@ -222,7 +222,7 @@ function DaySheet({
                 ) : (
                   <>
                     {/* Mini thali */}
-                    <div className="relative mx-auto mb-6 aspect-square w-[150px]">
+                    <div className="relative mx-auto mb-6 aspect-square w-[180px]">
                       <div
                         aria-hidden="true"
                         className="pointer-events-none absolute rounded-full"
@@ -281,11 +281,11 @@ function DaySheet({
                             </div>
                           )
                         })}
-                        <div className="z-10 flex flex-col items-center">
-                          <p className="text-[32px] font-bold leading-none" style={{ color: '#0F172A' }}>
+                        <div className="z-10 flex flex-col items-center px-10">
+                          <p className="text-[26px] font-bold leading-none" style={{ color: '#0F172A' }}>
                             {record.totalCals.toLocaleString()}
                           </p>
-                          <p className="mt-1 text-[12px]" style={{ color: '#9CA3AF' }}>
+                          <p className="mt-1 text-[11px]" style={{ color: '#9CA3AF' }}>
                             of {record.targetSnapshot.calories.toLocaleString()}
                           </p>
                         </div>
