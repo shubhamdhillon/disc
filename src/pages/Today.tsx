@@ -12,6 +12,7 @@ import {
   type LoggedMeal,
 } from '../lib/mealsStore'
 import { getWeekRecords, type DailyRecord } from '../lib/dailyRecords'
+import { fetchTargets, type Targets } from '../lib/targetsStore'
 
 const BRAND_GREEN = '#1C7C2E'
 const TERRACOTTA  = '#C4623D'
@@ -23,19 +24,6 @@ function getGreeting(): string {
   if (h < 12) return 'Good Morning'
   if (h < 17) return 'Good Afternoon'
   return 'Good Evening'
-}
-
-interface MacroTargets { calories: number; protein: number; carbs: number; fat: number }
-
-function loadTargets(): MacroTargets {
-  try {
-    const raw = localStorage.getItem('disc_targets')
-    if (raw) {
-      const t = JSON.parse(raw)
-      if (t?.calories && t?.protein) return t as MacroTargets
-    }
-  } catch (_) {}
-  return { calories: 2180, protein: 145, carbs: 240, fat: 65 }
 }
 
 // ─── Day zone (pure, derived each render — never persisted) ───────────────────
@@ -347,8 +335,8 @@ function NamePrompt({ onSave }: { onSave: (n: string) => void }) {
 function MacroStrip({
   targets, consumed, dayName: _dayName, mealsCount: _mealsCount, reduced,
 }: {
-  targets:    MacroTargets
-  consumed:   MacroTargets
+  targets:    Targets
+  consumed:   Targets
   dayName:    string
   mealsCount: number
   reduced:    boolean
@@ -935,7 +923,6 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
 export default function Today() {
   const prefersReduced = useReducedMotion() ?? false
   const navigate       = useNavigate()
-  const targets        = loadTargets()
   const dayName        = WEEKDAYS[new Date().getDay()]
   const greeting       = getGreeting()
 
@@ -951,6 +938,13 @@ export default function Today() {
   const undoTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const katoriTimerRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
+  const [targetsState, setTargetsState] = useState<
+    | { status: 'loading' }
+    | { status: 'ok'; targets: Targets }
+    | { status: 'missing' }
+    | { status: 'error'; message: string }
+  >({ status: 'loading' })
+
   const showUndoToast = (action: 'logged' | 'deleted', meal: LoggedMeal) => {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
     setUndoToast({ action, meal })
@@ -965,20 +959,57 @@ export default function Today() {
   const [meals, setMeals] = useState<LoggedMeal[]>([])
   const [week,  setWeek]  = useState<DailyRecord[]>([])
 
+  const loadTargets = async () => {
+    setTargetsState({ status: 'loading' })
+    const result = await fetchTargets()
+    if (result.status === 'ok') {
+      setTargetsState({ status: 'ok', targets: result.targets })
+    } else if (result.status === 'missing') {
+      setTargetsState({ status: 'missing' })
+    } else {
+      setTargetsState({ status: 'error', message: result.message })
+    }
+  }
+
   useEffect(() => {
     let active = true
     ;(async () => {
-      const [m, w] = await Promise.all([getTodaysMeals(), getWeekRecords()])
+      const result = await fetchTargets()
+      if (!active) return
+      if (result.status === 'ok') {
+        setTargetsState({ status: 'ok', targets: result.targets })
+      } else if (result.status === 'missing') {
+        setTargetsState({ status: 'missing' })
+      } else {
+        setTargetsState({ status: 'error', message: result.message })
+      }
+    })()
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (targetsState.status !== 'ok') return
+    let active = true
+    ;(async () => {
+      const [m, w] = await Promise.all([
+        getTodaysMeals(),
+        getWeekRecords(0, targetsState.targets),
+      ])
       if (active) { setMeals(m); setWeek(w) }
     })()
     return () => { active = false }
-  }, [mealVersion])
+  }, [mealVersion, targetsState])
 
-  const consumed  = sumMacros(meals)
+  const targets  = targetsState.status === 'ok' ? targetsState.targets : null
+  const consumed = sumMacros(meals)
   // Zone is derived fresh every render from today's meals + clock — never stored
-  const now       = new Date()
-  const zone      = computeDayZone(consumed.calories, targets.calories, now)
-  const display   = zoneDisplay(zone, consumed.calories, targets.calories)
+  const now     = new Date()
+  const zone    = targets
+    ? computeDayZone(consumed.calories, targets.calories, now)
+    : null
+  const display = targets && zone
+    ? zoneDisplay(zone, consumed.calories, targets.calories)
+    : null
 
   // Called by AddMealSheet after sheet exit. `loggedMeal` is only set for chip instant-logs.
   const handleMealLogged = (loggedMeal?: LoggedMeal) => {
@@ -1063,80 +1094,108 @@ export default function Today() {
       <div className="flex-1 overflow-y-auto bg-transparent">
         {!name && <NamePrompt onSave={handleSetName} />}
 
-        <div className="flex flex-col gap-6 px-5 pb-4 pt-2">
-
-          {/* Week strip — transparent so plate halo can bleed behind */}
-          <motion.div
-            className="relative z-10 bg-transparent"
-            {...fadeUp(0.02, prefersReduced)}
-          >
-            <WeekStrip week={week} />
-          </motion.div>
-
-          {/* Thali — equal space above/below via gap-6 + symmetric py-8 */}
-          <motion.div className="relative z-0" {...fadeUp(0.06, prefersReduced)}>
-            <Thali
-              zone={zone}
-              display={display}
-              meals={meals}
-              newlyFilledIdx={newKatoriIdx}
-              reduced={prefersReduced}
-            />
-          </motion.div>
-
-          {/* Macro strip */}
-          <motion.div {...fadeUp(0.14, prefersReduced)}>
-            <MacroStrip
-              targets={targets}
-              consumed={consumed}
-              dayName={dayName}
-              mealsCount={meals.length}
-              reduced={prefersReduced}
-            />
-          </motion.div>
-
-          {/* Recent meals */}
-          <motion.div {...fadeUp(0.22, prefersReduced)}>
-            <p className="mb-3 text-[16px] font-bold" style={{ color: BRAND_GREEN }}>
-              Recent Meals
-            </p>
-            {meals.length > 0 ? (
-              <div className="flex flex-col gap-2.5">
-                {/* initial={false} → suppress entrance for existing rows on mount;
-                    new rows (new key) still animate in */}
-                <AnimatePresence initial={false}>
-                  {meals.map(meal => (
-                    <motion.div
-                      key={meal.id}
-                      initial={prefersReduced ? false : { opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6, transition: { duration: 0.2 } }}
-                      transition={{ duration: 0.28, ease: 'easeOut' }}
-                    >
-                      <MealRow meal={meal} onDelete={handleDeleteMeal} />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            ) : (
-              <EmptyMeals />
+        {targetsState.status !== 'ok' || !targets || !zone || !display ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-6 py-24 text-center">
+            {targetsState.status === 'loading' && (
+              <p className="text-[15px] text-gray-400">Loading…</p>
             )}
-          </motion.div>
+            {targetsState.status === 'missing' && (
+              <p className="max-w-[280px] text-[15px] leading-relaxed text-gray-500">
+                We couldn&apos;t find your targets. Please contact support.
+              </p>
+            )}
+            {targetsState.status === 'error' && (
+              <>
+                <p className="mb-4 text-[15px] text-gray-500">Couldn&apos;t load your targets.</p>
+                <button
+                  type="button"
+                  onClick={() => void loadTargets()}
+                  className="rounded-2xl px-5 py-2.5 text-[15px] font-semibold text-white"
+                  style={{ backgroundColor: BRAND_GREEN }}
+                >
+                  Retry
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-6 px-5 pb-4 pt-2">
 
+            {/* Week strip — transparent so plate halo can bleed behind */}
+            <motion.div
+              className="relative z-10 bg-transparent"
+              {...fadeUp(0.02, prefersReduced)}
+            >
+              <WeekStrip week={week} />
+            </motion.div>
+
+            {/* Thali — equal space above/below via gap-6 + symmetric py-8 */}
+            <motion.div className="relative z-0" {...fadeUp(0.06, prefersReduced)}>
+              <Thali
+                zone={zone}
+                display={display}
+                meals={meals}
+                newlyFilledIdx={newKatoriIdx}
+                reduced={prefersReduced}
+              />
+            </motion.div>
+
+            {/* Macro strip */}
+            <motion.div {...fadeUp(0.14, prefersReduced)}>
+              <MacroStrip
+                targets={targets}
+                consumed={consumed}
+                dayName={dayName}
+                mealsCount={meals.length}
+                reduced={prefersReduced}
+              />
+            </motion.div>
+
+            {/* Recent meals */}
+            <motion.div {...fadeUp(0.22, prefersReduced)}>
+              <p className="mb-3 text-[16px] font-bold" style={{ color: BRAND_GREEN }}>
+                Recent Meals
+              </p>
+              {meals.length > 0 ? (
+                <div className="flex flex-col gap-2.5">
+                  {/* initial={false} → suppress entrance for existing rows on mount;
+                      new rows (new key) still animate in */}
+                  <AnimatePresence initial={false}>
+                    {meals.map(meal => (
+                      <motion.div
+                        key={meal.id}
+                        initial={prefersReduced ? false : { opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6, transition: { duration: 0.2 } }}
+                        transition={{ duration: 0.28, ease: 'easeOut' }}
+                      >
+                        <MealRow meal={meal} onDelete={handleDeleteMeal} />
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              ) : (
+                <EmptyMeals />
+              )}
+            </motion.div>
+
+          </div>
+        )}
+      </div>
+
+      {/* Add a meal — only when targets are ready */}
+      {targetsState.status === 'ok' && (
+        <div className="flex-shrink-0 px-5 pt-2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 20px)' }}>
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="h-14 w-full rounded-2xl text-[17px] font-semibold tracking-wide text-white"
+            style={{ backgroundColor: BRAND_GREEN }}
+          >
+            Add a meal
+          </button>
         </div>
-      </div>
-
-      {/* Add a meal */}
-      <div className="flex-shrink-0 px-5 pt-2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 20px)' }}>
-        <button
-          type="button"
-          onClick={() => setSheetOpen(true)}
-          className="h-14 w-full rounded-2xl text-[17px] font-semibold tracking-wide text-white"
-          style={{ backgroundColor: BRAND_GREEN }}
-        >
-          Add a meal
-        </button>
-      </div>
+      )}
 
       <AddMealSheet
         isOpen={sheetOpen}

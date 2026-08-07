@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { clearCachedTargets } from '../lib/targetsStore'
 
 const DANGER_RED = '#DC2626'
 
@@ -162,6 +163,7 @@ export default function Settings() {
     if (loggingOut) return
     setLoggingOut(true)
     try {
+      clearCachedTargets()
       await supabase.auth.signOut()
       navigate('/create-account?mode=login')
     } finally {
@@ -184,6 +186,7 @@ export default function Settings() {
       await supabase.from('meals').delete().eq('user_id', uid)
       await supabase.from('targets').delete().eq('user_id', uid)
       await supabase.from('profiles').delete().eq('id', uid)
+      clearCachedTargets()
       await supabase.auth.signOut()
       navigate('/splash')
     } catch (err) {
