@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, animate } from 'framer-motion'
 import AddMealSheet from '../components/AddMealSheet'
@@ -1245,20 +1246,23 @@ export default function Today() {
       />
 
       {/* Name prompt — modal overlay blocks interaction until set */}
-      {!name && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
-          style={{
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            backgroundColor: 'rgba(17,24,39,0.35)',
-          }}
-        >
-          <div className="w-full max-w-sm">
-            <NamePrompt onSave={handleSetName} />
-          </div>
-        </div>
-      )}
+      {typeof document !== 'undefined' &&
+        !name &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+            style={{
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              backgroundColor: 'rgba(17,24,39,0.35)',
+            }}
+          >
+            <div className="w-full max-w-sm">
+              <NamePrompt onSave={handleSetName} />
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* Undo toast — chip log or row delete; does not block interaction */}
       <AnimatePresence>
