@@ -947,6 +947,23 @@ export default function Today() {
     | { status: 'error'; message: string }
   >({ status: 'loading' })
 
+  const [vh, setVh] = useState<number | null>(null)
+  useEffect(() => {
+    const measure = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight
+      setVh(h)
+    }
+    measure()
+    window.visualViewport?.addEventListener('resize', measure)
+    window.addEventListener('resize', measure)
+    window.addEventListener('orientationchange', measure)
+    return () => {
+      window.visualViewport?.removeEventListener('resize', measure)
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('orientationchange', measure)
+    }
+  }, [])
+
   const showUndoToast = (action: 'logged' | 'deleted', meal: LoggedMeal) => {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
     setUndoToast({ action, meal })
@@ -1079,7 +1096,8 @@ export default function Today() {
 
   return (
     <motion.div
-      className="relative flex h-dvh w-full flex-col bg-white"
+      className="relative flex w-full flex-col bg-white"
+      style={{ height: vh ? `${vh}px` : '100dvh' }}
       initial={{ opacity: prefersReduced ? 1 : 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
