@@ -461,20 +461,6 @@ const VERDICT_GLOW = {
   bad:  { core: '#E11D48', mid: '#9F1239', rgb: '225,29,72',   particle: 'rgba(159,18,57,0.5)' },
 } as const
 
-/** Tiny rim particles — staggered loops for nebula depth. */
-const NEBULA_PARTICLES = [
-  { top: '8%',  left: '42%', size: 2, dx: ['0%', '3%', '-2%', '0%'], dy: ['0%', '-8%', '-14%', '-18%'], dur: 14, delay: 0 },
-  { top: '14%', left: '72%', size: 3, dx: ['0%', '-4%', '2%', '0%'],  dy: ['0%', '-6%', '-12%', '-16%'], dur: 11, delay: 1.2 },
-  { top: '28%', left: '88%', size: 2, dx: ['0%', '-5%', '-2%', '0%'], dy: ['0%', '-4%', '-10%', '-14%'], dur: 16, delay: 0.4 },
-  { top: '55%', left: '92%', size: 2, dx: ['0%', '-3%', '1%', '0%'],  dy: ['0%', '-7%', '-11%', '-15%'], dur: 9,  delay: 2.1 },
-  { top: '78%', left: '78%', size: 3, dx: ['0%', '4%', '-1%', '0%'],  dy: ['0%', '-5%', '-9%',  '-13%'], dur: 13, delay: 0.8 },
-  { top: '88%', left: '48%', size: 2, dx: ['0%', '-2%', '3%', '0%'],  dy: ['0%', '-6%', '-12%', '-17%'], dur: 15, delay: 1.6 },
-  { top: '82%', left: '18%', size: 2, dx: ['0%', '5%', '2%', '0%'],   dy: ['0%', '-4%', '-10%', '-14%'], dur: 10, delay: 0.2 },
-  { top: '58%', left: '6%',  size: 3, dx: ['0%', '4%', '-1%', '0%'],  dy: ['0%', '-8%', '-13%', '-16%'], dur: 12, delay: 2.4 },
-  { top: '32%', left: '10%', size: 2, dx: ['0%', '3%', '-3%', '0%'],  dy: ['0%', '-5%', '-11%', '-15%'], dur: 8,  delay: 1.0 },
-  { top: '12%', left: '22%', size: 2, dx: ['0%', '2%', '-4%', '0%'],  dy: ['0%', '-7%', '-12%', '-18%'], dur: 14, delay: 1.8 },
-] as const
-
 function Thali({
   zone, display, meals, newlyFilledIdx, reduced, verdict,
 }: {
@@ -501,37 +487,37 @@ function Thali({
 
   const emptyBorder = '1.5px dashed #D1D5DB'
 
+  // Glow breath rhythm — slower is calmer
+  const BREATH = {
+    good: { a: 7.0, b: 9.0 },
+    warn: { a: 5.0, b: 6.5 },
+    bad:  { a: 3.6, b: 4.8 },
+  } as const
+  const breath = BREATH[verdict.overall]
+
   return (
     <div className="flex flex-col items-center py-8">
       <div className="relative aspect-square w-full max-w-[230px]">
-        {/* Nebula layers — all behind opaque plate */}
+        {/* Nebula layers — breathing glow behind opaque plate */}
         <motion.div
           key={`nebula-1-${verdict.overall}`}
           aria-hidden="true"
           className="pointer-events-none absolute rounded-full"
           style={{
-            inset: '-16%',
+            inset: '-8%',
             zIndex: 0,
-            filter: 'blur(40px)',
-            background: `radial-gradient(circle at 50% 50%, rgba(${g.rgb},0.30) 0%, transparent 68%)`,
+            filter: 'blur(26px)',
+            background: `radial-gradient(circle at 46% 42%, rgba(${g.rgb},0.55) 0%, transparent 66%)`,
           }}
           animate={
             reduced
-              ? { x: 0, y: 0, scale: 1 }
-              : {
-                  x: ['-4%', '5%', '-4%'],
-                  y: ['4%', '-5%', '4%'],
-                  scale: [1, 1.08, 1],
-                }
+              ? { scale: 1, opacity: 0.7 }
+              : { scale: [0.94, 1.10, 0.94], opacity: [0.45, 1, 0.45] }
           }
           transition={
             reduced
               ? { duration: 0 }
-              : {
-                  x:     { duration: 26, repeat: Infinity, ease: 'easeInOut' },
-                  y:     { duration: 21, repeat: Infinity, ease: 'easeInOut' },
-                  scale: { duration: 17, repeat: Infinity, ease: 'easeInOut' },
-                }
+              : { duration: breath.a, repeat: Infinity, ease: [0.37, 0, 0.63, 1], times: [0, 0.42, 1] }
           }
         />
         <motion.div
@@ -539,87 +525,22 @@ function Thali({
           aria-hidden="true"
           className="pointer-events-none absolute rounded-full"
           style={{
-            inset: '-10%',
+            inset: '-3%',
             zIndex: 0,
-            filter: 'blur(28px)',
-            background: `radial-gradient(circle at 42% 38%, rgba(${g.rgb},0.42) 0%, transparent 60%)`,
+            filter: 'blur(16px)',
+            background: `radial-gradient(circle at 56% 58%, rgba(${g.rgb},0.42) 0%, transparent 60%)`,
           }}
           animate={
             reduced
-              ? { x: 0, y: 0, scale: 1 }
-              : {
-                  x: ['6%', '-5%', '6%'],
-                  y: ['-5%', '6%', '-5%'],
-                  scale: [1, 0.94, 1],
-                }
+              ? { scale: 1, opacity: 0.6 }
+              : { scale: [1.02, 0.90, 1.02], opacity: [0.85, 0.35, 0.85] }
           }
           transition={
             reduced
               ? { duration: 0 }
-              : {
-                  x:     { duration: 19, repeat: Infinity, ease: 'easeInOut' },
-                  y:     { duration: 24, repeat: Infinity, ease: 'easeInOut' },
-                  scale: { duration: 14, repeat: Infinity, ease: 'easeInOut' },
-                }
+              : { duration: breath.b, repeat: Infinity, ease: [0.37, 0, 0.63, 1], times: [0, 0.42, 1] }
           }
         />
-        <motion.div
-          key={`nebula-3-${verdict.overall}`}
-          aria-hidden="true"
-          className="pointer-events-none absolute rounded-full"
-          style={{
-            inset: '-4%',
-            zIndex: 0,
-            filter: 'blur(18px)',
-            background: `radial-gradient(circle at 58% 55%, rgba(${g.rgb},0.34) 0%, transparent 52%)`,
-          }}
-          animate={
-            reduced
-              ? { x: 0, y: 0, opacity: 0.8 }
-              : {
-                  x: ['-6%', '4%', '-6%'],
-                  y: ['5%', '-6%', '5%'],
-                  opacity: [0.6, 1, 0.6],
-                }
-          }
-          transition={
-            reduced
-              ? { duration: 0 }
-              : {
-                  x:       { duration: 15, repeat: Infinity, ease: 'easeInOut' },
-                  y:       { duration: 12, repeat: Infinity, ease: 'easeInOut' },
-                  opacity: { duration: 9,  repeat: Infinity, ease: 'easeInOut' },
-                }
-          }
-        />
-
-        {/* Rim particles — hidden when reduced motion */}
-        {!reduced && NEBULA_PARTICLES.map((p, i) => (
-          <motion.div
-            key={`particle-${verdict.overall}-${i}`}
-            aria-hidden="true"
-            className="pointer-events-none absolute rounded-full"
-            style={{
-              top: p.top,
-              left: p.left,
-              width: p.size,
-              height: p.size,
-              zIndex: 0,
-              backgroundColor: g.particle,
-            }}
-            animate={{
-              x: [...p.dx],
-              y: [...p.dy],
-              opacity: [0, 0.85, 0.5, 0],
-            }}
-            transition={{
-              duration: p.dur,
-              delay: p.delay,
-              repeat: Infinity,
-              ease: 'easeInOut',
-            }}
-          />
-        ))}
 
         {/* Opaque plate surface — blocks glow from washing the face */}
         <div
@@ -801,9 +722,9 @@ function fadeUp(delay: number, reduced: boolean) {
 const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 const AMBER_RING  = '#E0A94A'
-const AMBER_FILL  = '#FCF6EC'
+const AMBER_FILL  = 'transparent'
 const AMBER_TEXT  = '#B9822E'
-const HIT_FILL    = '#F1F9F2'
+const HIT_FILL    = 'transparent'
 const EMPTY_RING  = '#E8E8E6'
 const LABEL_GREY  = '#B8BEB9'
 
@@ -849,13 +770,13 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
           numberColor = '#D1D5DB' // gray-300
         } else if (isHit) {
           circleStyle = {
-            border: `2px solid ${BRAND_GREEN}`,
+            border: `1.5px solid ${BRAND_GREEN}`,
             backgroundColor: HIT_FILL,
           }
           numberColor = BRAND_GREEN
         } else if (isMiss) {
           circleStyle = {
-            border: `2px solid ${AMBER_RING}`,
+            border: `1.5px solid ${AMBER_RING}`,
             backgroundColor: AMBER_FILL,
           }
           numberColor = AMBER_TEXT
@@ -877,7 +798,7 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
               {letter}
             </span>
             <div
-              className="flex h-[30px] w-[30px] items-center justify-center rounded-full text-[13px] font-semibold"
+              className="flex h-[26px] w-[26px] items-center justify-center rounded-full text-[12px] font-semibold"
               style={{ ...circleStyle, color: numberColor }}
             >
               {dayNum}
@@ -1100,7 +1021,7 @@ export default function Today() {
         style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' }}
       >
         <motion.div
-          className="flex items-center justify-between gap-3 px-4 pb-5"
+          className="flex items-center justify-between gap-3 px-4 pb-3"
           {...fadeUp(0, prefersReduced)}
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -1119,6 +1040,9 @@ export default function Today() {
           <button type="button" aria-label="View history" className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-50">
             <HistoryIcon />
           </button>
+        </motion.div>
+        <motion.div className="px-4 pb-4" {...fadeUp(0.02, prefersReduced)}>
+          <WeekStrip week={week} />
         </motion.div>
       </div>
 
@@ -1150,15 +1074,7 @@ export default function Today() {
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-6 px-4 pb-4 pt-2">
-
-            {/* Week strip — transparent so plate halo can bleed behind */}
-            <motion.div
-              className="relative z-10 bg-transparent"
-              {...fadeUp(0.02, prefersReduced)}
-            >
-              <WeekStrip week={week} />
-            </motion.div>
+          <div className="flex flex-col gap-6 px-4 pb-4 pt-6">
 
             {/* Thali — equal space above/below via gap-6 + symmetric py-8 */}
             <motion.div className="relative z-0" {...fadeUp(0.06, prefersReduced)}>
