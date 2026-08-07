@@ -1,36 +1,23 @@
 /**
  * estimateMeal.ts
  *
- * Calls the Google Gemini API via the @google/genai SDK.
- *
- * Auth   : SDK sends the API key via "x-goog-api-key" header — compatible
- *          with both legacy AIza… keys and the new AQ.Ab… auth-key format.
- * Model  : gemini-3.6-flash (primary) → gemini-flash-latest (fallback).
- *          If the primary returns 404 "not available", the fallback is tried
- *          silently so one retired model never breaks the feature.
- * Output : responseJsonSchema + responseMimeType enforce valid JSON output.
+ * Calls the estimate-meal Supabase Edge Function, which runs Gemini server-side.
+ * Requires a signed-in session (Bearer token).
  *
  * Every failure emits a tagged console line: [estimateMeal] <CODE> …
  */
 
-import { GoogleGenAI, Type } from '@google/genai'
 import { logEstimateEntry } from './estimateLog'
+import { supabase } from './supabase'
 
 const TAG = '[estimateMeal]'
-
-// ── Models ────────────────────────────────────────────────────────────────────
-
-// Ordered list — tried left-to-right, stopping on first success.
-// gemini-3.6-flash: confirmed stable and available to new AQ.Ab… accounts.
-// gemini-flash-latest: Google-maintained alias, always points to a working model.
-const MODELS = ['gemini-3.6-flash', 'gemini-flash-latest'] as const
 
 const TIMEOUT_MS = 15_000
 
 // ── Typed error ───────────────────────────────────────────────────────────────
 
 export type EstimateErrorCode =
-  | 'NO_API_KEY'            // VITE_GEMINI_API_KEY missing / empty
+  | 'NO_API_KEY'            // legacy — key no longer lives in the client
   | 'AUTH_FAILURE'          // 401 / 403
   | 'RATE_LIMITED'          // 429
   | 'NETWORK_ERROR'         // fetch failed — offline / DNS / refused
@@ -72,56 +59,6 @@ export interface ImageInput {
   base64:   string   // raw base64, no "data:image/…" prefix
   mimeType: string   // e.g. 'image/jpeg'
 }
-
-// ── Schema ────────────────────────────────────────────────────────────────────
-
-// Constrains the model to emit valid JSON matching this shape.
-// responseMimeType alone only hints at JSON — the schema enforces it.
-const RESPONSE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    valid:    { type: Type.BOOLEAN },
-    name:     { type: Type.STRING  },
-    calories: { type: Type.INTEGER },
-    protein:  { type: Type.INTEGER },
-    carbs:    { type: Type.INTEGER },
-    fat:      { type: Type.INTEGER },
-    sugar:    { type: Type.INTEGER },
-    quality:  { type: Type.ARRAY, items: { type: Type.STRING } },
-    reason:   { type: Type.STRING  },
-  },
-  required: ['valid', 'sugar'],
-}
-
-const SYSTEM_PROMPT = `\
-You are a precise nutrition estimator specialising in Indian home-cooked food.
-
-Given a text description or image of a meal, respond with ONLY a JSON object — no prose, no markdown fences, no extra text.
-
-Assume typical Indian home portion sizes unless quantities are specified:
-- Roti / chapati: 35 g each, usually 2 served
-- Dal / sabzi / curry: 150 ml per katori (small bowl)
-- Cooked rice: 180 g per cup
-- Idli: 80 g each, usually 2–3 served
-- Dosa: 1 medium (~100 g batter)
-
-Also estimate added sugar in grams (rough estimate is fine).
-
-Classify each meal with one or more of exactly these five tags (lowercase, from this fixed set only):
-- "whole": minimally processed / home-cooked (dal, sabzi, roti, rice, fruit)
-- "processed": packaged or factory-made (biscuits, chips, instant noodles)
-- "sugary": high added sugar (mithai, sweets, desserts, sweetened drinks)
-- "fried": deep-fried (samosa, pakora, puri)
-- "drink": any calorie-containing beverage (chai, soda, juice, lassi)
-A meal can have multiple tags (e.g. kaju katli → ["sugary","processed"]; samosa → ["fried","processed"]; dal → ["whole"]).
-
-For a VALID meal input, respond exactly:
-{"valid":true,"name":"...","calories":<int>,"protein":<int>,"carbs":<int>,"fat":<int>,"sugar":<int>,"quality":["<tag>"]}
-
-If the input is NOT a recognisable meal (gibberish, random letters, non-food text) respond exactly:
-{"valid":false,"reason":"not a meal"}
-
-All numeric values must be rounded integers. Macros in grams. Calories in kcal.`
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -228,149 +165,76 @@ export async function estimateMeal(
   // t0 is used to compute elapsedMs for every failure entry in the dev log
   const t0 = performance.now()
 
-  const apiKey = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim()
-  if (!apiKey) {
-    console.error(`${TAG} NO_API_KEY — VITE_GEMINI_API_KEY is not set in .env`)
-    const err = new EstimateError('NO_API_KEY', 'VITE_GEMINI_API_KEY is not set')
-    if (import.meta.env.DEV) logEstimateEntry({ ts: Date.now(), code: 'NO_API_KEY', httpStatus: null, elapsedMs: 0, model: '—', detail: err.message })
+  const { data: { session } } = await supabase.auth.getSession()
+  const token = session?.access_token
+  if (!token) {
+    console.error(`${TAG} NO_SESSION — user is not signed in`)
+    const err = new EstimateError('AUTH_FAILURE', 'Not signed in')
+    if (import.meta.env.DEV) logEstimateEntry({ ts: Date.now(), code: 'AUTH_FAILURE', httpStatus: 401, elapsedMs: 0, model: '—', detail: err.message })
     throw err
   }
 
-  const ai = new GoogleGenAI({ apiKey })
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
+  const fnUrl = `${supabaseUrl}/functions/v1/estimate-meal`
 
-  const contents =
-    typeof input === 'string'
-      ? input
-      : [
-          {
-            role: 'user',
-            parts: [
-              { text: 'Estimate the nutritional content of this meal.' },
-              { inlineData: { mimeType: input.mimeType, data: input.base64 } },
-            ],
-          },
-        ]
-
-  const config = {
-    systemInstruction:  SYSTEM_PROMPT,
-    temperature:        0.1,
-    maxOutputTokens:    1024,
-    responseMimeType:   'application/json',
-    responseJsonSchema: RESPONSE_SCHEMA,
-  }
-
-  let lastErr: EstimateError | null = null
-
-  for (const model of MODELS) {
-    let response: Awaited<ReturnType<typeof ai.models.generateContent>>
-
-    try {
-      response = await withTimeout(
-        ai.models.generateContent({ model, contents, config }),
-        TIMEOUT_MS,
-      )
-    } catch (err) {
-      const apiErr = buildApiError(err)
-      // Log every network/API/timeout failure with http status and elapsed time.
-      // This makes it possible to distinguish e.g. a 429 from a genuine timeout.
-      if (import.meta.env.DEV) {
-        logEstimateEntry({
-          ts:         Date.now(),
-          code:       apiErr.code,
-          httpStatus: apiErr.httpStatus,
-          elapsedMs:  Math.round(performance.now() - t0),
-          model,
-          detail:     apiErr.message.slice(0, 120),
-        })
-      }
-      if (apiErr.code === 'MODEL_NOT_AVAILABLE') {
-        lastErr = apiErr
-        const next = MODELS[MODELS.indexOf(model) + 1]
-        console.warn(`${TAG} MODEL_NOT_AVAILABLE "${model}"${next ? ` — trying "${next}"` : ' — no more fallbacks'}`)
-        continue
-      }
-      throw apiErr
-    }
-
-    const text         = response.text ?? ''
-    const finishReason = String(
-      (response as { candidates?: Array<{ finishReason?: string }> })
-        .candidates?.[0]?.finishReason ?? 'UNKNOWN',
+  let response: Response
+  try {
+    response = await withTimeout(
+      fetch(fnUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ input }),
+      }),
+      TIMEOUT_MS,
     )
-    const usage = (response as {
-      usageMetadata?: { candidatesTokenCount?: number; promptTokenCount?: number }
-    }).usageMetadata
-
-    // Diagnostic prefix shared by every PARSE_FAILED log entry for this response.
-    // "finish=MAX_TOKENS tokens=41/1024" — lets us see if truncation caused the error.
-    const parseDiag = [
-      `finish=${finishReason}`,
-      usage?.candidatesTokenCount !== undefined
-        ? `tokens=${usage.candidatesTokenCount}/1024`
-        : null,
-    ].filter(Boolean).join(' ')
-
-    if (!text) {
-      let emptyErr: EstimateError
-      if (finishReason === 'SAFETY') {
-        console.error(`${TAG} SAFETY_BLOCK — content filtered by safety system`)
-        emptyErr = new EstimateError('SAFETY_BLOCK', 'Response blocked by safety filters')
-      } else {
-        console.error(`${TAG} EMPTY_RESPONSE finishReason=${finishReason}`, response)
-        emptyErr = new EstimateError('EMPTY_RESPONSE', `Empty response (finishReason: ${finishReason})`)
-      }
-      if (import.meta.env.DEV) {
-        logEstimateEntry({
-          ts:         Date.now(),
-          code:       emptyErr.code,
-          httpStatus: null,
-          elapsedMs:  Math.round(performance.now() - t0),
-          model,
-          detail:     emptyErr.message,
-        })
-      }
-      throw emptyErr
-    }
-
-    // Non-STOP finish with text means the response was cut off (e.g. MAX_TOKENS).
-    // Skip the parser — it will fail on truncated JSON — and throw directly.
-    if (finishReason !== 'STOP') {
-      const detail = `${parseDiag} — Not valid JSON — raw: ${text.slice(0, 200)}`
-      console.error(`${TAG} PARSE_FAILED finishReason=${finishReason}`, text.slice(0, 200))
-      const truncErr = new EstimateError('PARSE_FAILED', detail)
-      if (import.meta.env.DEV) {
-        logEstimateEntry({
-          ts:         Date.now(),
-          code:       'PARSE_FAILED',
-          httpStatus: null,
-          elapsedMs:  Math.round(performance.now() - t0),
-          model,
-          detail,
-        })
-      }
-      throw truncErr
-    }
-
-    // finishReason === 'STOP' — attempt to parse, log if it still fails
-    try {
-      return parseResponse(text)
-    } catch (parseErr) {
-      if (import.meta.env.DEV && parseErr instanceof EstimateError) {
-        logEstimateEntry({
-          ts:         Date.now(),
-          code:       parseErr.code,
-          httpStatus: null,
-          elapsedMs:  Math.round(performance.now() - t0),
-          model,
-          detail:     parseErr.code === 'PARSE_FAILED'
-                        ? `${parseDiag} — Not valid JSON — raw: ${text.slice(0, 200)}`
-                        : parseErr.message.slice(0, 120),
-        })
-      }
-      throw parseErr
-    }
+  } catch (err) {
+    const apiErr = buildApiError(err)
+    if (import.meta.env.DEV) logEstimateEntry({ ts: Date.now(), code: apiErr.code, httpStatus: apiErr.httpStatus, elapsedMs: Math.round(performance.now() - t0), model: 'edge', detail: apiErr.message.slice(0, 120) })
+    throw apiErr
   }
 
-  console.error(`${TAG} MODEL_NOT_AVAILABLE — all models exhausted: [${MODELS.join(', ')}]`)
-  throw lastErr ?? new EstimateError('MODEL_NOT_AVAILABLE', 'No available model found')
+  if (!response.ok) {
+    let detail = `Edge function returned ${response.status}`
+    try { const e = await response.json(); if (e?.error) detail = String(e.error) } catch {}
+    const code = response.status === 401 ? 'AUTH_FAILURE'
+               : response.status === 429 ? 'RATE_LIMITED'
+               : 'API_ERROR'
+    console.error(`${TAG} ${code} http=${response.status} — ${detail}`)
+    const apiErr = new EstimateError(code, detail, response.status)
+    if (import.meta.env.DEV) logEstimateEntry({ ts: Date.now(), code, httpStatus: response.status, elapsedMs: Math.round(performance.now() - t0), model: 'edge', detail: detail.slice(0, 120) })
+    throw apiErr
+  }
+
+  const payload = await response.json() as { text?: string; finishReason?: string }
+  const text = payload.text ?? ''
+  const finishReason = payload.finishReason ?? 'UNKNOWN'
+
+  if (!text) {
+    const emptyErr = new EstimateError(
+      finishReason === 'SAFETY' ? 'SAFETY_BLOCK' : 'EMPTY_RESPONSE',
+      finishReason === 'SAFETY' ? 'Response blocked by safety filters' : `Empty response (finishReason: ${finishReason})`,
+    )
+    if (import.meta.env.DEV) logEstimateEntry({ ts: Date.now(), code: emptyErr.code, httpStatus: null, elapsedMs: Math.round(performance.now() - t0), model: 'edge', detail: emptyErr.message })
+    throw emptyErr
+  }
+
+  if (finishReason !== 'STOP') {
+    const detail = `finish=${finishReason} — Not valid JSON — raw: ${text.slice(0, 200)}`
+    console.error(`${TAG} PARSE_FAILED finishReason=${finishReason}`, text.slice(0, 200))
+    const truncErr = new EstimateError('PARSE_FAILED', detail)
+    if (import.meta.env.DEV) logEstimateEntry({ ts: Date.now(), code: 'PARSE_FAILED', httpStatus: null, elapsedMs: Math.round(performance.now() - t0), model: 'edge', detail })
+    throw truncErr
+  }
+
+  try {
+    return parseResponse(text)
+  } catch (parseErr) {
+    if (import.meta.env.DEV && parseErr instanceof EstimateError) {
+      logEstimateEntry({ ts: Date.now(), code: parseErr.code, httpStatus: null, elapsedMs: Math.round(performance.now() - t0), model: 'edge', detail: parseErr.message.slice(0, 120) })
+    }
+    throw parseErr
+  }
 }
