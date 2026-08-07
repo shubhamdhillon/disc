@@ -1079,7 +1079,7 @@ export default function Today() {
 
   return (
     <motion.div
-      className="relative flex h-dvh w-full flex-col bg-white"
+      className="relative flex h-[100svh] w-full flex-col bg-white"
       initial={{ opacity: prefersReduced ? 1 : 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
