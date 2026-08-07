@@ -213,11 +213,11 @@ export default function CreateAccount() {
     >
       {/* ── Dark grainy aurora header ── */}
       <div
-        className="relative flex w-full flex-shrink-0 flex-col justify-end overflow-hidden px-6 pb-12"
+        className="relative flex w-full flex-shrink-0 flex-col justify-end overflow-hidden px-4 pb-12"
         style={{
           height: '38%',
           minHeight: 220,
-          paddingTop: 'max(env(safe-area-inset-top, 0px), 24px)',
+          paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)',
           backgroundColor: '#0A3D1E',
         }}
       >
@@ -337,8 +337,8 @@ export default function CreateAccount() {
 
       {/* ── Bottom sheet card ── */}
       <div
-        className="relative z-10 -mt-6 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-t-[28px] bg-white px-6 pt-7 shadow-[0_-8px_32px_rgba(0,0,0,0.12)]"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 28px)' }}
+        className="relative z-10 -mt-6 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-t-[28px] bg-white px-4 pt-7 shadow-[0_-8px_32px_rgba(0,0,0,0.12)]"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
       >
         {/* Google placeholder */}
         <button

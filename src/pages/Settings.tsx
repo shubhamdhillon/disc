@@ -225,7 +225,7 @@ export default function Settings() {
       {/* Header */}
       <div
         className="flex-shrink-0 border-b border-gray-100 bg-white"
-        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 12px)' }}
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' }}
       >
         <div className="flex h-12 items-center gap-2 px-3">
           <button
@@ -241,8 +241,8 @@ export default function Settings() {
       </div>
 
       <div
-        className="flex-1 overflow-y-auto px-5 pt-6"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 32px)' }}
+        className="flex-1 overflow-y-auto px-4 pt-6"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
       >
         {/* Profile */}
         <div className="mb-8 flex items-center gap-3.5">

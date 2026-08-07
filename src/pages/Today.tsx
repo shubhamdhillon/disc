@@ -14,6 +14,7 @@ import {
 import { getWeekRecords, type DailyRecord } from '../lib/dailyRecords'
 import { fetchTargets, type Targets } from '../lib/targetsStore'
 import { fetchName, saveName, getCachedName } from '../lib/profileStore'
+import { computeDayVerdict, type DayVerdict } from '../lib/dayVerdict'
 import { supabase } from '../lib/supabase'
 
 const BRAND_GREEN = '#1C7C2E'
@@ -300,7 +301,7 @@ function NamePrompt({ onSave }: { onSave: (n: string) => void }) {
 
   return (
     <motion.div
-      className="mx-5 mb-5 rounded-2xl bg-green-50 px-4 py-4"
+      className="rounded-2xl bg-green-50 px-4 py-4"
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
@@ -334,23 +335,25 @@ function NamePrompt({ onSave }: { onSave: (n: string) => void }) {
 }
 
 // ─── Macro strip ──────────────────────────────────────────────────────────────
+const AXIS_BAR_COLOR = {
+  bad:  '#E11D48',
+  warn: '#E0A94A',
+} as const
+
 function MacroStrip({
-  targets, consumed, dayName: _dayName, mealsCount: _mealsCount, reduced,
+  targets, consumed, dayName: _dayName, mealsCount: _mealsCount, reduced, verdict,
 }: {
   targets:    Targets
   consumed:   Targets
   dayName:    string
   mealsCount: number
   reduced:    boolean
+  verdict:    DayVerdict
 }) {
-  // Width stays capped at 100%; overage is signalled via terracotta colour
+  // Width stays capped at 100%; protein/fat color comes from axis status
   const pPct = Math.min((consumed.protein / targets.protein) * 100, 100)
   const cPct = Math.min((consumed.carbs   / targets.carbs)   * 100, 100)
   const fPct = Math.min((consumed.fat     / targets.fat)     * 100, 100)
-
-  const pOver = consumed.protein > targets.protein
-  const cOver = consumed.carbs   > targets.carbs
-  const fOver = consumed.fat     > targets.fat
 
   const barT = reduced
     ? { duration: 0 }
@@ -362,22 +365,26 @@ function MacroStrip({
     value:    number
     target:   number
     pct:      number
-    over:     boolean
+    /** Status color for protein/fat; null = always green gradient (carbs) */
+    statusColor: string | null
     gradient: string
   }[] = [
     {
       key: 'protein', label: 'Protein',
-      value: consumed.protein, target: targets.protein, pct: pPct, over: pOver,
+      value: consumed.protein, target: targets.protein, pct: pPct,
+      statusColor: verdict.protein === 'fine' ? null : AXIS_BAR_COLOR[verdict.protein],
       gradient: 'linear-gradient(90deg, #1C7C2E 0%, #34A048 100%)',
     },
     {
       key: 'carbs', label: 'Carbs',
-      value: consumed.carbs, target: targets.carbs, pct: cPct, over: cOver,
+      value: consumed.carbs, target: targets.carbs, pct: cPct,
+      statusColor: null, // carbs never status-colored
       gradient: 'linear-gradient(90deg, #6FA82F 0%, #8FC44A 100%)',
     },
     {
       key: 'fat', label: 'Fat',
-      value: consumed.fat, target: targets.fat, pct: fPct, over: fOver,
+      value: consumed.fat, target: targets.fat, pct: fPct,
+      statusColor: verdict.fat === 'fine' ? null : AXIS_BAR_COLOR[verdict.fat],
       gradient: 'linear-gradient(90deg, #A6CF77 0%, #C2E29A 100%)',
     },
   ]
@@ -387,7 +394,7 @@ function MacroStrip({
       className="rounded-2xl"
       style={{
         backgroundColor: '#FFFFFF',
-        padding: '16px 14px',
+        padding: '16px',
         border: '1px solid #EEF0EE',
         boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
       }}
@@ -401,7 +408,7 @@ function MacroStrip({
                 duration={600}
                 reduced={reduced}
                 className="text-[15px] font-semibold leading-none"
-                style={{ color: col.over ? TERRACOTTA : '#1A1A1A' }}
+                style={{ color: col.statusColor ?? '#1A1A1A' }}
               />
               <span className="text-[11px]" style={{ color: '#AEB4AE' }}>
                 /{col.target}g
@@ -420,7 +427,7 @@ function MacroStrip({
                 animate={{ width: `${col.pct}%` }}
                 transition={barT}
                 style={{
-                  background: col.over ? TERRACOTTA : col.gradient,
+                  background: col.statusColor ?? col.gradient,
                 }}
               />
             </div>
@@ -468,13 +475,14 @@ const NEBULA_PARTICLES = [
 ] as const
 
 function Thali({
-  zone, display, meals, newlyFilledIdx, reduced,
+  zone, display, meals, newlyFilledIdx, reduced, verdict,
 }: {
   zone:            DayZone
   display:         ZoneDisplay
   meals:           LoggedMeal[]
   newlyFilledIdx:  number | null
   reduced:         boolean
+  verdict:         DayVerdict
 }) {
   // Chronological: oldest first so the first meal fills the first katori
   const chronoMeals = useMemo(
@@ -489,30 +497,12 @@ function Thali({
   const visual    = ZONE_VISUAL[zone]
   const showCal   = sizePx >= 34
 
-  // Day verdict — meal quality + calorie zone → glow color
-  const redCount = chronoMeals.filter(m => mealTier(m) === 'red').length
-  const isOver   = zone === 'over'
-  const verdict: 'good' | 'warn' | 'bad' =
-    (redCount >= 2 || isOver)                 ? 'bad'
-    : (redCount === 1 || zone === 'closing')  ? 'warn'
-    : 'good'
-  const g = VERDICT_GLOW[verdict]
-
-  // Copy reflects quality+calories verdict — not calories alone
-  const VERDICT_COPY = {
-    bad:  "Rough day, too much junk crept in",
-    warn: 'Decent, but watch the junk creeping in',
-  } as const
-  const VERDICT_COPY_COLOR = {
-    bad:  '#E11D48',
-    warn: '#D97706',
-    good: visual.accent,
-  } as const
-  const copyLine =
-    verdict === 'bad'  ? VERDICT_COPY.bad
-    : verdict === 'warn' ? VERDICT_COPY.warn
-    : display.copy   // good — keep celebratory / zone-positive line (or null)
-  const copyColor = VERDICT_COPY_COLOR[verdict]
+  const g = VERDICT_GLOW[verdict.overall]
+  const copyLine = verdict.coachLine
+  const copyColor =
+    verdict.overall === 'bad'  ? '#E11D48'
+    : verdict.overall === 'warn' ? '#D97706'
+    : visual.accent
 
   const emptyBorder = '1.5px dashed #D1D5DB'
 
@@ -521,7 +511,7 @@ function Thali({
       <div className="relative aspect-square w-full max-w-[230px]">
         {/* Nebula layers — all behind opaque plate */}
         <motion.div
-          key={`nebula-1-${verdict}`}
+          key={`nebula-1-${verdict.overall}`}
           aria-hidden="true"
           className="pointer-events-none absolute rounded-full"
           style={{
@@ -550,7 +540,7 @@ function Thali({
           }
         />
         <motion.div
-          key={`nebula-2-${verdict}`}
+          key={`nebula-2-${verdict.overall}`}
           aria-hidden="true"
           className="pointer-events-none absolute rounded-full"
           style={{
@@ -579,7 +569,7 @@ function Thali({
           }
         />
         <motion.div
-          key={`nebula-3-${verdict}`}
+          key={`nebula-3-${verdict.overall}`}
           aria-hidden="true"
           className="pointer-events-none absolute rounded-full"
           style={{
@@ -611,7 +601,7 @@ function Thali({
         {/* Rim particles — hidden when reduced motion */}
         {!reduced && NEBULA_PARTICLES.map((p, i) => (
           <motion.div
-            key={`particle-${verdict}-${i}`}
+            key={`particle-${verdict.overall}-${i}`}
             aria-hidden="true"
             className="pointer-events-none absolute rounded-full"
             style={{
@@ -736,9 +726,9 @@ function Thali({
         </div>
       </div>
 
-      {/* Verdict copy — quality + calories, not calories alone */}
+      {/* Coach line from dayVerdict brain — empty string hides the line */}
       <AnimatePresence mode="wait">
-        {copyLine && (
+        {copyLine !== '' && (
           <motion.p
             key={copyLine}
             className="mt-4 max-w-[280px] text-center text-[13px] font-medium"
@@ -947,23 +937,6 @@ export default function Today() {
     | { status: 'error'; message: string }
   >({ status: 'loading' })
 
-  const [vh, setVh] = useState<number | null>(null)
-  useEffect(() => {
-    const measure = () => {
-      const h = window.visualViewport?.height ?? window.innerHeight
-      setVh(h)
-    }
-    measure()
-    window.visualViewport?.addEventListener('resize', measure)
-    window.addEventListener('resize', measure)
-    window.addEventListener('orientationchange', measure)
-    return () => {
-      window.visualViewport?.removeEventListener('resize', measure)
-      window.removeEventListener('resize', measure)
-      window.removeEventListener('orientationchange', measure)
-    }
-  }, [])
-
   const showUndoToast = (action: 'logged' | 'deleted', meal: LoggedMeal) => {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
     setUndoToast({ action, meal })
@@ -1050,6 +1023,9 @@ export default function Today() {
   const display = targets && zone
     ? zoneDisplay(zone, consumed.calories, targets.calories)
     : null
+  const verdict = targets
+    ? computeDayVerdict(meals, targets, now)
+    : null
 
   // Called by AddMealSheet after sheet exit. `loggedMeal` is only set for chip instant-logs.
   const handleMealLogged = (loggedMeal?: LoggedMeal) => {
@@ -1096,8 +1072,7 @@ export default function Today() {
 
   return (
     <motion.div
-      className="relative flex w-full flex-col bg-white"
-      style={{ height: vh ? `${vh}px` : '100dvh' }}
+      className="relative flex h-dvh w-full flex-col bg-white"
       initial={{ opacity: prefersReduced ? 1 : 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, transition: { duration: 0.2 } }}
@@ -1106,10 +1081,10 @@ export default function Today() {
       {/* Header */}
       <div
         className="flex-shrink-0 bg-transparent"
-        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 20px)' }}
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 16px)' }}
       >
         <motion.div
-          className="flex items-center justify-between gap-3 px-5 pb-5"
+          className="flex items-center justify-between gap-3 px-4 pb-5"
           {...fadeUp(0, prefersReduced)}
         >
           <div className="flex min-w-0 flex-1 items-center gap-3">
@@ -1133,9 +1108,8 @@ export default function Today() {
 
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto bg-transparent">
-        {!name && <NamePrompt onSave={handleSetName} />}
 
-        {targetsState.status !== 'ok' || !targets || !zone || !display ? (
+        {targetsState.status !== 'ok' || !targets || !zone || !display || !verdict ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6 py-24 text-center">
             {targetsState.status === 'loading' && (
               <p className="text-[15px] text-gray-400">Loading…</p>
@@ -1160,7 +1134,7 @@ export default function Today() {
             )}
           </div>
         ) : (
-          <div className="flex flex-col gap-6 px-5 pb-4 pt-2">
+          <div className="flex flex-col gap-6 px-4 pb-4 pt-2">
 
             {/* Week strip — transparent so plate halo can bleed behind */}
             <motion.div
@@ -1178,6 +1152,7 @@ export default function Today() {
                 meals={meals}
                 newlyFilledIdx={newKatoriIdx}
                 reduced={prefersReduced}
+                verdict={verdict}
               />
             </motion.div>
 
@@ -1189,6 +1164,7 @@ export default function Today() {
                 dayName={dayName}
                 mealsCount={meals.length}
                 reduced={prefersReduced}
+                verdict={verdict}
               />
             </motion.div>
 
@@ -1226,7 +1202,7 @@ export default function Today() {
 
       {/* Add a meal — only when targets are ready */}
       {targetsState.status === 'ok' && (
-        <div className="flex-shrink-0 px-5 pt-2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 20px)' }}>
+        <div className="flex-shrink-0 px-4 pt-2" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}>
           <button
             type="button"
             onClick={() => setSheetOpen(true)}
@@ -1244,12 +1220,28 @@ export default function Today() {
         onLogged={handleMealLogged}
       />
 
+      {/* Name prompt — modal overlay blocks interaction until set */}
+      {!name && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center px-4"
+          style={{
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(17,24,39,0.35)',
+          }}
+        >
+          <div className="w-full max-w-sm">
+            <NamePrompt onSave={handleSetName} />
+          </div>
+        </div>
+      )}
+
       {/* Undo toast — chip log or row delete; does not block interaction */}
       <AnimatePresence>
         {undoToast && (
           <motion.div
             key="undo-toast"
-            className="pointer-events-none absolute inset-x-0 z-50 flex justify-center px-5"
+            className="pointer-events-none absolute inset-x-0 z-50 flex justify-center px-4"
             style={{ bottom: 'max(calc(env(safe-area-inset-bottom, 0px) + 88px), 108px)' }}
             initial={prefersReduced ? false : { opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}

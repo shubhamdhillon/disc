@@ -47,8 +47,8 @@ export default function Intro() {
 
       {/* Headline + subtext */}
       <div
-        className="relative z-10 flex-shrink-0 px-6"
-        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 56px)' }}
+        className="relative z-10 flex-shrink-0 px-4"
+        style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 48px)' }}
       >
         <h1
           className="m-0 text-[88px] font-extrabold tracking-tight text-white"
@@ -75,8 +75,8 @@ export default function Intro() {
 
       {/* CTAs — primary journey, secondary login */}
       <div
-        className="relative z-10 flex flex-shrink-0 flex-col gap-3 px-6"
-        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 24px)' }}
+        className="relative z-10 flex flex-shrink-0 flex-col gap-3 px-4"
+        style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)' }}
       >
         <button
           type="button"

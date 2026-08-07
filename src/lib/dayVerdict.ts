@@ -64,6 +64,7 @@ export function computeDayVerdict(
 
   // PROTEIN — floor; only under is bad (and only judged hard when late)
   const pctProtein = consumed.protein / targets.protein
+  const pctCal = consumed.calories / targets.calories
   let protein: AxisStatus
   if (late) {
     if (pctProtein < 0.7) protein = 'bad'
@@ -73,6 +74,18 @@ export function computeDayVerdict(
     // Don't scold early, but surface if badly behind pace
     protein = pctProtein < 0.4 ? 'warn' : 'fine'
   }
+
+  // Pace check — goal-relative, not time-relative.
+  // If calories are being spent much faster than protein is being banked,
+  // the day is going wrong even if it's early and still arithmetically fixable.
+  const gap = pctCal - pctProtein // both are 0..1 fractions
+  if (pctCal >= 0.7 && gap > 0.4) {
+    protein = 'bad'
+  } else if (pctCal >= 0.5 && gap > 0.3) {
+    // only escalate, never downgrade an existing 'bad'
+    if (protein !== 'bad') protein = 'warn'
+  }
+
   // Unrecoverable protein miss = bad at any hour, not just late
   if (boxedIn && pctProtein < 0.8) {
     protein = 'bad'
@@ -85,7 +98,6 @@ export function computeDayVerdict(
   const sugar = axisCeiling(consumed.sugar / SUGAR_CEILING)
 
   // CALORIES — budget; no early front-loading penalty
-  const pctCal = consumed.calories / targets.calories
   let calories: AxisStatus
   if (pctCal > 1.1) calories = 'bad'
   else if (pctCal > 1.0) calories = 'warn'
