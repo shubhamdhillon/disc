@@ -162,7 +162,7 @@ function DaySheet({
         <>
           <motion.div
             className="fixed inset-0 z-40"
-            style={{ backgroundColor: 'rgba(17,24,39,0.35)' }}
+            style={{ backgroundColor: 'rgba(17,24,39,0.35)', touchAction: 'none' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -173,8 +173,10 @@ function DaySheet({
           <motion.div
             className="fixed inset-x-0 bottom-0 z-50 overflow-y-auto rounded-t-[28px] bg-white px-4 pt-6"
             style={{
-              maxHeight: '85vh',
+              maxHeight: '85svh',
               paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 16px)',
+              WebkitOverflowScrolling: 'touch',
+              touchAction: 'pan-y',
             }}
             initial={prefersReduced ? false : { y: '100%' }}
             animate={{ y: 0 }}
