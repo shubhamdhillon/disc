@@ -112,3 +112,87 @@ export function clearCachedTargets(userId?: string): void {
   }
   for (const key of toRemove) localStorage.removeItem(key)
 }
+
+export interface TargetsResolver {
+  /** Targets active on the given local date. */
+  forDate(date: Date): Targets
+}
+
+export type TargetsHistoryResult =
+  | { status: 'ok'; resolver: TargetsResolver }
+  | { status: 'missing' }
+  | { status: 'error'; message: string }
+
+/** Local calendar day as YYYY-MM-DD — never parse effective_from as UTC. */
+function toLocalDateKey(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+type TargetsRow = Targets & { effective_from: string }
+
+/**
+ * Fetch all targets rows and build a date→targets resolver for past-day judging.
+ * Relies on RLS for user scoping, same as fetchTargets.
+ */
+export async function fetchTargetsHistory(): Promise<TargetsHistoryResult> {
+  const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+  if (sessionError) {
+    console.error('fetchTargetsHistory session error:', sessionError)
+    return { status: 'error', message: sessionError.message }
+  }
+  const userId = sessionData.session?.user?.id
+  if (!userId) {
+    return { status: 'error', message: 'Not signed in' }
+  }
+
+  const { data, error } = await supabase
+    .from('targets')
+    .select('calories, protein, carbs, fat, effective_from, created_at')
+    .order('effective_from', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  if (error) {
+    console.error('fetchTargetsHistory failed:', error)
+    return { status: 'error', message: error.message }
+  }
+
+  if (!data || data.length === 0) {
+    return { status: 'missing' }
+  }
+
+  const rows: TargetsRow[] = data.map(row => ({
+    calories: row.calories,
+    protein:  row.protein,
+    carbs:    row.carbs,
+    fat:      row.fat,
+    effective_from: row.effective_from,
+  }))
+
+  const resolver: TargetsResolver = {
+    forDate(date: Date): Targets {
+      const dateKey = toLocalDateKey(date)
+      // Last row whose effective_from is on or before dateKey
+      let chosen: TargetsRow | null = null
+      for (const row of rows) {
+        if (row.effective_from <= dateKey) {
+          chosen = row
+        } else {
+          break // rows are oldest-first; later ones are after this date
+        }
+      }
+      // Before earliest effective_from → deliberate fallback to earliest row
+      const pick = chosen ?? rows[0]
+      return {
+        calories: pick.calories,
+        protein:  pick.protein,
+        carbs:    pick.carbs,
+        fat:      pick.fat,
+      }
+    },
+  }
+
+  return { status: 'ok', resolver }
+}

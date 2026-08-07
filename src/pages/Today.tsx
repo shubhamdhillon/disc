@@ -12,7 +12,7 @@ import {
   type LoggedMeal,
 } from '../lib/mealsStore'
 import { getWeekRecords, type DailyRecord } from '../lib/dailyRecords'
-import { fetchTargets, type Targets } from '../lib/targetsStore'
+import { fetchTargets, fetchTargetsHistory, type Targets, type TargetsResolver } from '../lib/targetsStore'
 import { fetchName, saveName, getCachedName } from '../lib/profileStore'
 import { computeDayVerdict, type DayVerdict } from '../lib/dayVerdict'
 import { supabase } from '../lib/supabase'
@@ -876,6 +876,7 @@ export default function Today() {
     | { status: 'missing' }
     | { status: 'error'; message: string }
   >({ status: 'loading' })
+  const [resolver, setResolver] = useState<TargetsResolver | null>(null)
 
   const showUndoToast = (action: 'logged' | 'deleted', meal: LoggedMeal) => {
     if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
@@ -927,7 +928,10 @@ export default function Today() {
   useEffect(() => {
     let active = true
     ;(async () => {
-      const result = await fetchTargets()
+      const [result, history] = await Promise.all([
+        fetchTargets(),
+        fetchTargetsHistory(),
+      ])
       if (!active) return
       if (result.status === 'ok') {
         setTargetsState({ status: 'ok', targets: result.targets })
@@ -936,22 +940,25 @@ export default function Today() {
       } else {
         setTargetsState({ status: 'error', message: result.message })
       }
+      if (history.status === 'ok') {
+        setResolver(history.resolver)
+      }
     })()
     return () => { active = false }
   }, [])
 
   useEffect(() => {
-    if (targetsState.status !== 'ok') return
+    if (targetsState.status !== 'ok' || !resolver) return
     let active = true
     ;(async () => {
       const [m, w] = await Promise.all([
         getTodaysMeals(),
-        getWeekRecords(0, targetsState.targets),
+        getWeekRecords(0, resolver),
       ])
       if (active) { setMeals(m); setWeek(w) }
     })()
     return () => { active = false }
-  }, [mealVersion, targetsState])
+  }, [mealVersion, targetsState, resolver])
 
   const targets  = targetsState.status === 'ok' ? targetsState.targets : null
   const consumed = sumMacros(meals)

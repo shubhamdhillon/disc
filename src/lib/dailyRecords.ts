@@ -8,7 +8,7 @@
  */
 
 import { getMeals, type LoggedMeal } from './mealsStore'
-import type { Targets } from './targetsStore'
+import type { Targets, TargetsResolver } from './targetsStore'
 import { computeDayVerdict, type DayVerdict } from './dayVerdict'
 
 export interface DailyRecord {
@@ -100,17 +100,18 @@ function computeDailyRecord(
 }
 
 /** Compute a single day's nutrition record from logged meals. */
-export async function getDailyRecord(date: Date, targets: Targets): Promise<DailyRecord> {
+export async function getDailyRecord(date: Date, resolver: TargetsResolver): Promise<DailyRecord> {
   const meals = await getMeals()
-  return computeDailyRecord(meals, date, targets)
+  return computeDailyRecord(meals, date, resolver.forDate(date))
 }
 
 /**
  * Fixed Monday–Sunday week records.
  * weekOffset 0 = the Mon–Sun containing today; -1 = previous week, etc.
  * Fetches meals once, then computes all 7 days in memory.
+ * Each day is judged against the targets active on that date.
  */
-export async function getWeekRecords(weekOffset: number, targets: Targets): Promise<DailyRecord[]> {
+export async function getWeekRecords(weekOffset: number, resolver: TargetsResolver): Promise<DailyRecord[]> {
   const meals = await getMeals()
 
   const today = new Date()
@@ -137,7 +138,8 @@ export async function getWeekRecords(weekOffset: number, targets: Targets): Prom
       monday.getMonth(),
       monday.getDate() + i,
     )
-    records.push(computeDailyRecord(meals, d, targets))
+    const targetsForDay = resolver.forDate(d)
+    records.push(computeDailyRecord(meals, d, targetsForDay))
   }
   return records
 }
