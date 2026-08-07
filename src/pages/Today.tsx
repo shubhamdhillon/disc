@@ -456,9 +456,9 @@ const TIER_KATORI: Record<MealTier, { fill: string; ring: string; number: string
 }
 
 const VERDICT_GLOW = {
-  good: { core: '#059669', mid: '#065F46', rgb: '5,150,105',  particle: 'rgba(5,95,60,0.5)' },
-  warn: { core: '#D97706', mid: '#92400E', rgb: '217,119,6',   particle: 'rgba(146,64,14,0.5)' },
-  bad:  { core: '#E11D48', mid: '#9F1239', rgb: '225,29,72',   particle: 'rgba(159,18,57,0.5)' },
+  good: { inner: '5,150,105',  outer: '132,204,22' },
+  warn: { inner: '217,119,6',  outer: '225,113,80' },
+  bad:  { inner: '225,29,72',  outer: '159,18,110' },
 } as const
 
 function Thali({
@@ -507,7 +507,7 @@ function Thali({
             inset: '-8%',
             zIndex: 0,
             filter: 'blur(26px)',
-            background: `radial-gradient(circle at 46% 42%, rgba(${g.rgb},0.55) 0%, transparent 66%)`,
+            background: `radial-gradient(circle at 46% 42%, rgba(${g.outer},0.55) 0%, transparent 66%)`,
           }}
           animate={
             reduced
@@ -528,7 +528,7 @@ function Thali({
             inset: '-3%',
             zIndex: 0,
             filter: 'blur(16px)',
-            background: `radial-gradient(circle at 56% 58%, rgba(${g.rgb},0.42) 0%, transparent 60%)`,
+            background: `radial-gradient(circle at 56% 58%, rgba(${g.inner},0.42) 0%, transparent 60%)`,
           }}
           animate={
             reduced
