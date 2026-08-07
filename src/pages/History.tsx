@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -409,6 +409,7 @@ export default function History() {
   const [dayRecord, setDayRecord] = useState<DailyRecord | null>(null)
   const [dayLoading, setDayLoading] = useState(true)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const today = new Date()
   const [viewYear, setViewYear] = useState(today.getFullYear())
@@ -424,6 +425,19 @@ export default function History() {
   const isCurrentMonth =
     viewYear === today.getFullYear() && viewMonth === today.getMonth()
 
+  // Lock the page scroll container while the sheet is open (iOS scroll competition)
+  useEffect(() => {
+    if (!sheetOpen) return
+    const el = scrollRef.current
+    if (!el) return
+    const scrollTop = el.scrollTop
+    const prevOverflow = el.style.overflow
+    el.style.overflow = 'hidden'
+    return () => {
+      el.style.overflow = prevOverflow
+      el.scrollTop = scrollTop
+    }
+  }, [sheetOpen])
   useEffect(() => {
     let active = true
     ;(async () => {
@@ -506,7 +520,7 @@ export default function History() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto pb-4">
         {/* Month control — sits with the calendar */}
         <div className="flex items-center justify-between px-4 pb-4 pt-4">
           <h2
