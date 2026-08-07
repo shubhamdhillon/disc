@@ -16,7 +16,6 @@ import { fetchTargets, fetchTargetsHistory, type Targets, type TargetsResolver }
 import { fetchName, saveName, getCachedName } from '../lib/profileStore'
 import { computeDayVerdict, type DayVerdict } from '../lib/dayVerdict'
 import { supabase } from '../lib/supabase'
-import { TriangleAlert, Siren } from 'lucide-react'
 
 const BRAND_GREEN = '#1C7C2E'
 const TERRACOTTA  = '#C4623D'
@@ -815,7 +814,10 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
 
 // ─── Coach card ───────────────────────────────────────────────────────────────
 function CoachCard({ coach }: { coach: DayVerdict['coach'] }) {
+  if (!coach.headline && !coach.body) return null
+
   if (coach.severity === 'good') {
+    if (!coach.body) return null
     return (
       <p className="text-center text-[13px] leading-relaxed" style={{ color: '#6B7280' }}>
         {coach.body}
@@ -824,29 +826,100 @@ function CoachCard({ coach }: { coach: DayVerdict['coach'] }) {
   }
 
   const isBad = coach.severity === 'bad'
-  const accent = isBad ? '#E11D48' : '#D97706'
-  const Icon = isBad ? Siren : TriangleAlert
+  const accent = isBad ? '#BE123C' : '#B45309'
 
   return (
     <div
-      className="rounded-2xl"
-        style={{
-          backgroundColor: isBad ? '#FEF2F3' : '#FEF9F0',
-          border: `1px solid ${isBad ? '#F9D5DA' : '#F5E3C4'}`,
-          padding: '16px',
-        }}
+      style={{
+        position: 'relative',
+        transform: 'rotate(-1.2deg)',
+        filter:
+          'drop-shadow(0 1px 2px rgba(0,0,0,0.08)) drop-shadow(0 6px 12px rgba(0,0,0,0.05))',
+      }}
     >
-      <div className="flex items-start gap-3">
-        <Icon size={18} strokeWidth={2} color={accent} className="mt-[1px] flex-shrink-0" />
-        <div className="min-w-0">
+      <div
+        style={{
+          backgroundColor: isBad ? '#FFE8E4' : '#FFF0CE',
+          border: 'none',
+          borderRadius: '2px',
+          padding: '16px 18px 22px 18px',
+          position: 'relative',
+          overflow: 'hidden',
+          clipPath:
+            'polygon(0 0, 100% 0, 100% calc(100% - 34px), calc(100% - 34px) 100%, 0 100%)',
+        }}
+      >
+        {/* Soft creases */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{ zIndex: 0, overflow: 'hidden' }}
+        >
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(102deg, transparent 0%, transparent 38%, rgba(0,0,0,0.022) 39%, rgba(255,255,255,0.55) 41%, transparent 44%, transparent 100%)',
+            }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(94deg, transparent 0%, transparent 68%, rgba(0,0,0,0.018) 69%, rgba(255,255,255,0.45) 71%, transparent 74%, transparent 100%)',
+            }}
+          />
+        </div>
+
+        {/* Fine grain overlay */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            zIndex: 0,
+            opacity: 0.18,
+            mixBlendMode: 'soft-light',
+            backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(
+              `<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>
+          <filter id='p'>
+            <feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/>
+          </filter>
+          <rect width='100%' height='100%' filter='url(#p)'/>
+        </svg>`,
+            )}")`,
+            backgroundRepeat: 'repeat',
+            backgroundSize: '100px 100px',
+          }}
+        />
+
+        <div
+          className="min-w-0"
+          style={{ position: 'relative', zIndex: 1, transform: 'rotate(1.2deg)' }}
+        >
           <p className="text-[14px] font-semibold leading-snug" style={{ color: accent }}>
             {coach.headline}
           </p>
-          <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: '#4B5563' }}>
+          <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: '#3F3A2E' }}>
             {coach.body}
           </p>
         </div>
       </div>
+
+      {/* Peeled flap — sits in the notched corner */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          right: 0,
+          width: '34px',
+          height: '34px',
+          background: `linear-gradient(135deg, ${isBad ? '#F8D3CC' : '#F3E2AE'} 0%, ${isBad ? '#FFE8E4' : '#FFF0CE'} 55%, #FFFFFF 100%)`,
+          clipPath: 'polygon(100% 0, 0 100%, 100% 100%)',
+          borderRadius: '0 0 3px 0',
+          boxShadow: '-2px -2px 4px rgba(0,0,0,0.10)',
+        }}
+      />
     </div>
   )
 }
@@ -1103,7 +1176,7 @@ export default function Today() {
             </motion.div>
 
             {/* Coach — structured message from dayVerdict brain */}
-            <motion.div {...fadeUp(0.10, prefersReduced)}>
+            <motion.div className="px-0.5" {...fadeUp(0.10, prefersReduced)}>
               <CoachCard coach={verdict.coach} />
             </motion.div>
 

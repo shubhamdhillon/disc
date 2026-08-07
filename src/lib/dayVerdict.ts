@@ -236,6 +236,20 @@ export function computeDayVerdict(
     consumed.sugar += meal.sugar ?? 0
   }
 
+  if (meals.length === 0) {
+    return {
+      overall: 'good',
+      protein: 'fine',
+      fat: 'fine',
+      sugar: 'fine',
+      calories: 'fine',
+      boxedIn: false,
+      consumed,
+      coachLine: '',
+      coach: { severity: 'good', headline: '', body: '' },
+    }
+  }
+
   const late = now.getHours() >= 18
 
   // BOXED-IN — remaining calories can't fit remaining protein (~4 kcal/g)
@@ -252,8 +266,10 @@ export function computeDayVerdict(
     else if (pctProtein < 0.8) protein = 'warn'
     else protein = 'fine'
   } else {
-    // Don't scold early, but surface if badly behind pace
-    protein = pctProtein < 0.4 ? 'warn' : 'fine'
+    // Before noon, a protein shortfall is not yet a fault. From midday on,
+    // being badly behind is worth surfacing.
+    const afterNoon = now.getHours() >= 12
+    protein = (afterNoon && pctProtein < 0.4) ? 'warn' : 'fine'
   }
 
   // Pace check — goal-relative, not time-relative.
