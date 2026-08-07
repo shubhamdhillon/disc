@@ -13,6 +13,8 @@ import {
 } from '../lib/mealsStore'
 import { getWeekRecords, type DailyRecord } from '../lib/dailyRecords'
 import { fetchTargets, type Targets } from '../lib/targetsStore'
+import { fetchName, saveName, getCachedName } from '../lib/profileStore'
+import { supabase } from '../lib/supabase'
 
 const BRAND_GREEN = '#1C7C2E'
 const TERRACOTTA  = '#C4623D'
@@ -926,7 +928,7 @@ export default function Today() {
   const dayName        = WEEKDAYS[new Date().getDay()]
   const greeting       = getGreeting()
 
-  const [name,          setName]          = useState<string | null>(() => localStorage.getItem('disc_name'))
+  const [name,          setName]          = useState<string | null>(null)
   const [sheetOpen,     setSheetOpen]     = useState(false)
   const [mealVersion,   setMealVersion]   = useState(0)
   // Which katori index just filled — drives the spring animation
@@ -951,13 +953,34 @@ export default function Today() {
     undoTimerRef.current = setTimeout(() => setUndoToast(null), 4000)
   }
 
-  const handleSetName = (n: string) => {
-    localStorage.setItem('disc_name', n)
-    setName(n)
+  const handleSetName = async (n: string) => {
+    const trimmed = n.trim()
+    if (!trimmed) return
+    setName(trimmed)                    // optimistic paint
+    const result = await saveName(trimmed)
+    if (!result.ok) {
+      console.error('Failed to save name:', result.reason)
+      // leave the optimistic name; it will reconcile from DB on next load
+    }
   }
 
   const [meals, setMeals] = useState<LoggedMeal[]>([])
   const [week,  setWeek]  = useState<DailyRecord[]>([])
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id
+      if (uid) {
+        const cached = getCachedName(uid)
+        if (cached && active) setName(cached)
+      }
+      const dbName = await fetchName()
+      if (active && dbName) setName(dbName)
+    })()
+    return () => { active = false }
+  }, [])
 
   const loadTargets = async () => {
     setTargetsState({ status: 'loading' })

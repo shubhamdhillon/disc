@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import { clearCachedTargets } from '../lib/targetsStore'
+import { clearCachedName, fetchName, getCachedName } from '../lib/profileStore'
 
 const DANGER_RED = '#DC2626'
 
@@ -156,14 +157,30 @@ export default function Settings() {
   const [deleting, setDeleting] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
 
-  const displayName = localStorage.getItem('disc_name')
+  const [displayName, setDisplayName] = useState<string | null>(null)
   const email = user?.email ?? ''
+
+  useEffect(() => {
+    let active = true
+    ;(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const uid = session?.user?.id
+      if (uid) {
+        const cached = getCachedName(uid)
+        if (cached && active) setDisplayName(cached)
+      }
+      const dbName = await fetchName()
+      if (active && dbName) setDisplayName(dbName)
+    })()
+    return () => { active = false }
+  }, [])
 
   const handleLogout = async () => {
     if (loggingOut) return
     setLoggingOut(true)
     try {
       clearCachedTargets()
+      clearCachedName()
       await supabase.auth.signOut()
       navigate('/create-account?mode=login')
     } finally {
@@ -187,6 +204,7 @@ export default function Settings() {
       await supabase.from('targets').delete().eq('user_id', uid)
       await supabase.from('profiles').delete().eq('id', uid)
       clearCachedTargets()
+      clearCachedName()
       await supabase.auth.signOut()
       navigate('/splash')
     } catch (err) {
