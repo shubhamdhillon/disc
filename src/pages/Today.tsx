@@ -16,6 +16,7 @@ import { fetchTargets, type Targets } from '../lib/targetsStore'
 import { fetchName, saveName, getCachedName } from '../lib/profileStore'
 import { computeDayVerdict, type DayVerdict } from '../lib/dayVerdict'
 import { supabase } from '../lib/supabase'
+import { TriangleAlert, Siren } from 'lucide-react'
 
 const BRAND_GREEN = '#1C7C2E'
 const TERRACOTTA  = '#C4623D'
@@ -494,15 +495,9 @@ function Thali({
   const slotCount = Math.max(6, filledCount)
   const positions = katoriPositions(slotCount)
   const sizePx    = katoriSizePx(slotCount)
-  const visual    = ZONE_VISUAL[zone]
   const showCal   = sizePx >= 34
 
   const g = VERDICT_GLOW[verdict.overall]
-  const copyLine = verdict.coachLine
-  const copyColor =
-    verdict.overall === 'bad'  ? '#E11D48'
-    : verdict.overall === 'warn' ? '#D97706'
-    : visual.accent
 
   const emptyBorder = '1.5px dashed #D1D5DB'
 
@@ -725,23 +720,6 @@ function Thali({
         </div>
         </div>
       </div>
-
-      {/* Coach line from dayVerdict brain — empty string hides the line */}
-      <AnimatePresence mode="wait">
-        {copyLine !== '' && (
-          <motion.p
-            key={copyLine}
-            className="mt-4 max-w-[280px] text-center text-[13px] font-medium"
-            style={{ color: copyColor }}
-            initial={reduced ? false : { opacity: 0, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduced ? undefined : { opacity: 0, y: -4 }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
-          >
-            {copyLine}
-          </motion.p>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
@@ -907,6 +885,44 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Coach card ───────────────────────────────────────────────────────────────
+function CoachCard({ coach }: { coach: DayVerdict['coach'] }) {
+  if (coach.severity === 'good') {
+    return (
+      <p className="text-center text-[13px] leading-relaxed" style={{ color: '#6B7280' }}>
+        {coach.body}
+      </p>
+    )
+  }
+
+  const isBad = coach.severity === 'bad'
+  const accent = isBad ? '#E11D48' : '#D97706'
+  const Icon = isBad ? Siren : TriangleAlert
+
+  return (
+    <div
+      className="rounded-2xl"
+        style={{
+          backgroundColor: isBad ? '#FEF2F3' : '#FEF9F0',
+          border: `1px solid ${isBad ? '#F9D5DA' : '#F5E3C4'}`,
+          padding: '16px',
+        }}
+    >
+      <div className="flex items-start gap-3">
+        <Icon size={18} strokeWidth={2} color={accent} className="mt-[1px] flex-shrink-0" />
+        <div className="min-w-0">
+          <p className="text-[14px] font-semibold leading-snug" style={{ color: accent }}>
+            {coach.headline}
+          </p>
+          <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: '#4B5563' }}>
+            {coach.body}
+          </p>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1154,6 +1170,11 @@ export default function Today() {
                 reduced={prefersReduced}
                 verdict={verdict}
               />
+            </motion.div>
+
+            {/* Coach — structured message from dayVerdict brain */}
+            <motion.div {...fadeUp(0.10, prefersReduced)}>
+              <CoachCard coach={verdict.coach} />
             </motion.div>
 
             {/* Macro strip */}

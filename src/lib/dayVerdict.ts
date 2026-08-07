@@ -19,6 +19,12 @@ export interface DayVerdict {
   }
   /** One-line coach message — highest-priority truth right now */
   coachLine: string
+  /** Structured coach message naming every current issue */
+  coach: {
+    severity: 'good' | 'warn' | 'bad'
+    headline: string
+    body: string
+  }
 }
 
 /** Placeholder daily sugar ceiling (g) until targets include sugar. Revisit. */
@@ -28,6 +34,181 @@ function axisCeiling(pct: number): AxisStatus {
   if (pct > 1.0) return 'bad'
   if (pct >= 0.8) return 'warn'
   return 'fine'
+}
+
+type IssueKey = 'protein' | 'fat' | 'sugar' | 'calories' | 'junk'
+type Issue = { key: IssueKey; severity: 'warn' | 'bad' }
+
+function singleIssueHeadline(issue: Issue): string {
+  switch (issue.key) {
+    case 'protein':
+      return issue.severity === 'bad' ? 'Protein came up short' : 'Watch the protein'
+    case 'fat':
+      return issue.severity === 'bad' ? 'Over on fat' : 'Watch the fat'
+    case 'sugar':
+      return issue.severity === 'bad' ? 'Over on sugar' : 'Watch the sugar'
+    case 'calories':
+      return issue.severity === 'bad' ? 'Over on calories' : 'Watch the calories'
+    case 'junk':
+      return issue.severity === 'bad' ? 'Too much junk' : 'Watch the junk'
+  }
+}
+
+function proteinSentence(
+  severity: 'warn' | 'bad',
+  boxedIn: boolean,
+  caloriesLeft: number,
+  proteinLeft: number,
+): string {
+  if (severity === 'bad' && boxedIn) {
+    return `Protein's well short, and you've spent most of your calories already. There's about ${caloriesLeft} left and you still need ${proteinLeft}g, so keep whatever's next lean.`
+  }
+  if (severity === 'bad') {
+    return `Protein's well short for the day. You've got ${caloriesLeft} calories left, so make them count: eggs, dal, paneer, chicken.`
+  }
+  return `Protein's a bit short. You've got ${caloriesLeft} calories left, so make them count.`
+}
+
+function issuePrimarySentence(
+  issue: Issue,
+  boxedIn: boolean,
+  caloriesLeft: number,
+  proteinLeft: number,
+): string {
+  switch (issue.key) {
+    case 'protein':
+      return proteinSentence(issue.severity, boxedIn, caloriesLeft, proteinLeft)
+    case 'fat':
+      return issue.severity === 'bad'
+        ? `You're over on fat. Nothing to undo now, keep the rest of the day lean.`
+        : `You're close to your fat limit. Watch it on the next meal.`
+    case 'sugar':
+      return issue.severity === 'bad'
+        ? `Sugar's over for the day.`
+        : `You're close to your sugar limit.`
+    case 'calories':
+      return issue.severity === 'bad'
+        ? `You're over your calories for today.`
+        : `You're close to your calorie limit.`
+    case 'junk':
+      return issue.severity === 'bad'
+        ? `Too much junk crept in today.`
+        : `Some junk crept in today.`
+  }
+}
+
+/** Short follow-on clause when this issue isn't the lead. */
+function issueFollowOn(issue: Issue): string {
+  switch (issue.key) {
+    case 'protein':
+      return issue.severity === 'bad'
+        ? `protein's well short too`
+        : `protein's a bit short too`
+    case 'fat':
+      return issue.severity === 'bad'
+        ? `you're over on fat too`
+        : `you're close to your fat limit`
+    case 'sugar':
+      return issue.severity === 'bad'
+        ? `sugar's over too`
+        : `sugar's getting close`
+    case 'calories':
+      return issue.severity === 'bad'
+        ? `you're over your calories too`
+        : `calories are getting close`
+    case 'junk':
+      return issue.severity === 'bad'
+        ? `too much junk crept in too`
+        : `some junk crept in`
+  }
+}
+
+function composeCoachBody(
+  issues: Issue[],
+  boxedIn: boolean,
+  caloriesLeft: number,
+  proteinLeft: number,
+): string {
+  if (issues.length === 0) {
+    return `Nothing off so far. Keep it going.`
+  }
+
+  if (issues.length === 1) {
+    return issuePrimarySentence(issues[0], boxedIn, caloriesLeft, proteinLeft)
+  }
+
+  // Protein leads when present; remaining issues become natural follow-ons.
+  const lead = issues[0]
+  const rest = issues.slice(1)
+  const primary = issuePrimarySentence(lead, boxedIn, caloriesLeft, proteinLeft)
+
+  if (rest.length === 1) {
+    const follow = issueFollowOn(rest[0])
+    // Capitalize only when starting a new sentence after a period.
+    if (primary.endsWith('.')) {
+      return `${primary} ${follow.charAt(0).toUpperCase()}${follow.slice(1)}.`
+    }
+    return `${primary} ${follow}.`
+  }
+
+  // 3+: join follow-ons with commas and "and"
+  const follows = rest.map(issueFollowOn)
+  const last = follows[follows.length - 1]
+  const head = follows.slice(0, -1).join(', ')
+  const joined = `${head}, and ${last}`
+  if (primary.endsWith('.')) {
+    return `${primary} ${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`
+  }
+  return `${primary} ${joined}.`
+}
+
+function buildCoach(
+  overall: DayVerdict['overall'],
+  protein: AxisStatus,
+  fat: AxisStatus,
+  sugar: AxisStatus,
+  calories: AxisStatus,
+  redMealCount: number,
+  boxedIn: boolean,
+  caloriesLeft: number,
+  proteinLeft: number,
+): DayVerdict['coach'] {
+  // Collect true issues in priority order: protein, fat, sugar, calories, junk
+  const issues: Issue[] = []
+  if (protein === 'warn' || protein === 'bad') {
+    issues.push({ key: 'protein', severity: protein })
+  }
+  if (fat === 'warn' || fat === 'bad') {
+    issues.push({ key: 'fat', severity: fat })
+  }
+  if (sugar === 'warn' || sugar === 'bad') {
+    issues.push({ key: 'sugar', severity: sugar })
+  }
+  if (calories === 'warn' || calories === 'bad') {
+    issues.push({ key: 'calories', severity: calories })
+  }
+  if (redMealCount >= 2) {
+    issues.push({ key: 'junk', severity: 'bad' })
+  } else if (redMealCount === 1) {
+    issues.push({ key: 'junk', severity: 'warn' })
+  }
+
+  let headline: string
+  if (issues.length === 0) {
+    headline = 'On track'
+  } else if (issues.length >= 3) {
+    headline = 'A few things off today'
+  } else if (issues.length === 2) {
+    headline = 'Two things off today'
+  } else {
+    headline = singleIssueHeadline(issues[0])
+  }
+
+  return {
+    severity: overall,
+    headline,
+    body: composeCoachBody(issues, boxedIn, caloriesLeft, proteinLeft),
+  }
 }
 
 /**
@@ -155,6 +336,18 @@ export function computeDayVerdict(
   }
   // else: empty (no meals yet, or nothing to say)
 
+  const coach = buildCoach(
+    overall,
+    protein,
+    fat,
+    sugar,
+    calories,
+    redMealCount,
+    boxedIn,
+    caloriesLeft,
+    proteinLeft,
+  )
+
   return {
     overall,
     protein,
@@ -164,5 +357,6 @@ export function computeDayVerdict(
     boxedIn,
     consumed,
     coachLine,
+    coach,
   }
 }
