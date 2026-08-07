@@ -1047,7 +1047,12 @@ export default function Today() {
               {name ? `${greeting}, ${name}` : greeting}
             </p>
           </div>
-          <button type="button" aria-label="View history" className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-50">
+          <button
+            type="button"
+            aria-label="View history"
+            onClick={() => navigate('/history')}
+            className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-50"
+          >
             <HistoryIcon />
           </button>
         </motion.div>

@@ -20,6 +20,7 @@ import CreateAccount   from './pages/CreateAccount'
 import Today           from './pages/Today'
 import AddMeal         from './pages/AddMeal'
 import Settings        from './pages/Settings'
+import History         from './pages/History'
 import DevReset        from './components/DevReset'
 
 function AnimatedRoutes() {
@@ -51,6 +52,7 @@ function AnimatedRoutes() {
           <Route path="/today"    element={<Today />} />
           <Route path="/add-meal" element={<AddMeal />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/history"  element={<History />} />
         </Route>
       </Routes>
     </AnimatePresence>
