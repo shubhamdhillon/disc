@@ -462,9 +462,8 @@ const VERDICT_GLOW = {
 } as const
 
 function Thali({
-  zone, display, meals, newlyFilledIdx, reduced, verdict,
+  display, meals, newlyFilledIdx, reduced, verdict,
 }: {
-  zone:            DayZone
   display:         ZoneDisplay
   meals:           LoggedMeal[]
   newlyFilledIdx:  number | null
@@ -1079,7 +1078,6 @@ export default function Today() {
             {/* Thali — equal space above/below via gap-6 + symmetric py-8 */}
             <motion.div className="relative z-0" {...fadeUp(0.06, prefersReduced)}>
               <Thali
-                zone={zone}
                 display={display}
                 meals={meals}
                 newlyFilledIdx={newKatoriIdx}
