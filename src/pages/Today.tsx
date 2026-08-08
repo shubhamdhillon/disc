@@ -16,6 +16,7 @@ import { getWeekRecords, type DailyRecord } from '../lib/dailyRecords'
 import { fetchTargets, fetchTargetsHistory, type Targets, type TargetsResolver } from '../lib/targetsStore'
 import { fetchName, saveName, getCachedName } from '../lib/profileStore'
 import { computeDayVerdict, type DayVerdict } from '../lib/dayVerdict'
+import { computeDayPattern } from '../lib/dayPattern'
 import { supabase } from '../lib/supabase'
 
 const BRAND_GREEN = '#1C7C2E'
@@ -1043,8 +1044,11 @@ export default function Today() {
   const display = targets && zone
     ? zoneDisplay(zone, consumed.calories, targets.calories)
     : null
+  // week is a fixed Mon–Sun window; early-week pattern windows are short.
+  // A rolling 7-day window is a later improvement.
+  const pattern = week.length > 0 ? computeDayPattern(week) : undefined
   const verdict = targets
-    ? computeDayVerdict(meals, targets, now)
+    ? computeDayVerdict(meals, targets, now, pattern)
     : null
 
   // Called by AddMealSheet after sheet exit. `loggedMeal` is only set for chip instant-logs.

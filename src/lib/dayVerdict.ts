@@ -1,5 +1,6 @@
 import type { Targets } from './targetsStore'
 import type { LoggedMeal } from './mealsStore'
+import type { DayPattern } from './dayPattern'
 
 export type AxisStatus = 'fine' | 'warn' | 'bad'
 
@@ -162,6 +163,93 @@ function composeCoachBody(
   return `${primary} ${joined}.`
 }
 
+function axisTitle(axis: NonNullable<DayPattern['axis']>): string {
+  return axis.charAt(0).toUpperCase() + axis.slice(1)
+}
+
+/** Pattern-aware headline/body when the multi-day story matters more than today alone. */
+function patternCoachCopy(
+  pattern: DayPattern,
+  plainHeadline: string,
+  plainBody: string,
+): { headline: string; body: string } | null {
+  if (pattern.kind === 'steady') return null
+
+  switch (pattern.kind) {
+    case 'chronic': {
+      const axis = pattern.axis
+      const n = pattern.length
+      if (!axis) return null
+      if (axis === 'protein') {
+        return {
+          headline: 'This again',
+          body: `Protein's been short ${n} of the last 7 days. That's not a slip anymore, that's the pattern. Fix the next meal.`,
+        }
+      }
+      if (axis === 'fat') {
+        return {
+          headline: 'Fat, again',
+          body: `That's ${n} days out of 7 over on fat. Something in the routine needs to change.`,
+        }
+      }
+      if (axis === 'sugar') {
+        return {
+          headline: 'Sugar, again',
+          body: `That's ${n} days out of 7 over on sugar. Something in the routine needs to change.`,
+        }
+      }
+      return {
+        headline: 'Calories, again',
+        body: `That's ${n} days out of 7 over on calories. Something in the routine needs to change.`,
+      }
+    }
+
+    case 'streak_bad': {
+      const axis = pattern.axis
+      if (!axis) return null
+      const name = axisTitle(axis)
+      const n = pattern.length
+      if (pattern.intensity === 1) {
+        return {
+          headline: 'Twice now',
+          body: `${name} was off yesterday too. Worth catching before it becomes a thing.`,
+        }
+      }
+      if (pattern.intensity === 2) {
+        return {
+          headline: 'Three in a row',
+          body: `Third day running on ${axis}. What's going on?`,
+        }
+      }
+      return {
+        headline: `${n} days straight`,
+        body: `${name} has been off ${n} days running. This needs a real fix, not a better tomorrow.`,
+      }
+    }
+
+    case 'first_slip':
+      return {
+        headline: plainHeadline,
+        body: `${plainBody} First off day in a while, so no drama. Just don't make it two.`,
+      }
+
+    case 'bounced_back':
+      return {
+        headline: 'Back on it',
+        body: `Clean day after ${pattern.length} rough ones. That's the harder one to do.`,
+      }
+
+    case 'clean_streak':
+      return {
+        headline: `${pattern.length} clean`,
+        body: `${pattern.length} days straight. Keep it boring.`,
+      }
+
+    default:
+      return null
+  }
+}
+
 function buildCoach(
   overall: DayVerdict['overall'],
   protein: AxisStatus,
@@ -172,6 +260,7 @@ function buildCoach(
   boxedIn: boolean,
   caloriesLeft: number,
   proteinLeft: number,
+  pattern?: DayPattern,
 ): DayVerdict['coach'] {
   // Collect true issues in priority order: protein, fat, sugar, calories, junk
   const issues: Issue[] = []
@@ -204,21 +293,31 @@ function buildCoach(
     headline = singleIssueHeadline(issues[0])
   }
 
+  const body = composeCoachBody(issues, boxedIn, caloriesLeft, proteinLeft)
+
+  if (pattern) {
+    const patterned = patternCoachCopy(pattern, headline, body)
+    if (patterned) {
+      return { severity: overall, headline: patterned.headline, body: patterned.body }
+    }
+  }
+
   return {
     severity: overall,
     headline,
-    body: composeCoachBody(issues, boxedIn, caloriesLeft, proteinLeft),
+    body,
   }
 }
 
 /**
  * Pure coach brain: judge a day from meals, targets, and current time.
- * No I/O — outputs axis status + overall verdict for the UI to interpret.
+ * Optional pattern escalates coach copy across days. No I/O.
  */
 export function computeDayVerdict(
   meals: LoggedMeal[],
   targets: Targets,
   now: Date,
+  pattern?: DayPattern,
 ): DayVerdict {
   const consumed = {
     calories: 0,
@@ -362,6 +461,7 @@ export function computeDayVerdict(
     boxedIn,
     caloriesLeft,
     proteinLeft,
+    pattern,
   )
 
   return {
