@@ -9,7 +9,7 @@
 
 import { getMeals, type LoggedMeal } from './mealsStore'
 import type { Targets, TargetsResolver } from './targetsStore'
-import { computeDayVerdict, type DayVerdict } from './dayVerdict'
+import { computeDayVerdict, type DayVerdict, type AxisStatus } from './dayVerdict'
 
 export interface DailyRecord {
   date: string              // 'YYYY-MM-DD' local
@@ -24,6 +24,13 @@ export interface DailyRecord {
   mealCount: number
   /** null when no meals logged — nothing to judge */
   verdict: DayVerdict['overall'] | null
+  /** Per-axis status from the same verdict call; null when no meals */
+  axes: {
+    protein: AxisStatus
+    fat: AxisStatus
+    sugar: AxisStatus
+    calories: AxisStatus
+  } | null
 }
 
 /** Local calendar day as YYYY-MM-DD. */
@@ -68,6 +75,7 @@ function computeDailyRecord(
     mealCount > 0 && Math.abs(totalCals - target) <= target * 0.10
 
   let verdict: DayVerdict['overall'] | null = null
+  let axes: DailyRecord['axes'] = null
   if (dayMeals.length > 0) {
     const isToday = toDateKey(date) === toDateKey(new Date())
     // Completed days are judged as if at end of day so the protein floor
@@ -76,7 +84,14 @@ function computeDailyRecord(
     const judgeAt = isToday
       ? new Date()
       : new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59)
-    verdict = computeDayVerdict(dayMeals, targets, judgeAt).overall
+    const dayVerdict = computeDayVerdict(dayMeals, targets, judgeAt)
+    verdict = dayVerdict.overall
+    axes = {
+      protein: dayVerdict.protein,
+      fat: dayVerdict.fat,
+      sugar: dayVerdict.sugar,
+      calories: dayVerdict.calories,
+    }
   }
 
   return {
@@ -96,6 +111,7 @@ function computeDailyRecord(
     hitCalorieGoal,
     mealCount,
     verdict,
+    axes,
   }
 }
 
