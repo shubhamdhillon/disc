@@ -1,6 +1,7 @@
 import type { Targets } from './targetsStore'
 import type { LoggedMeal } from './mealsStore'
 import type { DayPattern } from './dayPattern'
+import { pickCoachLine } from './coachPicker'
 
 export type AxisStatus = 'fine' | 'warn' | 'bad'
 
@@ -37,281 +38,9 @@ function axisCeiling(pct: number): AxisStatus {
   return 'fine'
 }
 
-type IssueKey = 'protein' | 'fat' | 'sugar' | 'calories' | 'junk'
-type Issue = { key: IssueKey; severity: 'warn' | 'bad' }
-
-function singleIssueHeadline(issue: Issue): string {
-  switch (issue.key) {
-    case 'protein':
-      return issue.severity === 'bad' ? 'Protein came up short' : 'Watch the protein'
-    case 'fat':
-      return issue.severity === 'bad' ? 'Over on fat' : 'Watch the fat'
-    case 'sugar':
-      return issue.severity === 'bad' ? 'Over on sugar' : 'Watch the sugar'
-    case 'calories':
-      return issue.severity === 'bad' ? 'Over on calories' : 'Watch the calories'
-    case 'junk':
-      return issue.severity === 'bad' ? 'Too much junk' : 'Watch the junk'
-  }
-}
-
-function proteinSentence(
-  severity: 'warn' | 'bad',
-  boxedIn: boolean,
-  caloriesLeft: number,
-  proteinLeft: number,
-): string {
-  if (severity === 'bad' && boxedIn) {
-    return `Protein's well short, and you've spent most of your calories already. There's about ${caloriesLeft} left and you still need ${proteinLeft}g, so keep whatever's next lean.`
-  }
-  if (severity === 'bad') {
-    return `Protein's well short for the day. You've got ${caloriesLeft} calories left, so make them count: eggs, dal, paneer, chicken.`
-  }
-  return `Protein's a bit short. You've got ${caloriesLeft} calories left, so make them count.`
-}
-
-function issuePrimarySentence(
-  issue: Issue,
-  boxedIn: boolean,
-  caloriesLeft: number,
-  proteinLeft: number,
-): string {
-  switch (issue.key) {
-    case 'protein':
-      return proteinSentence(issue.severity, boxedIn, caloriesLeft, proteinLeft)
-    case 'fat':
-      return issue.severity === 'bad'
-        ? `You're over on fat. Nothing to undo now, keep the rest of the day lean.`
-        : `You're close to your fat limit. Watch it on the next meal.`
-    case 'sugar':
-      return issue.severity === 'bad'
-        ? `Sugar's over for the day.`
-        : `You're close to your sugar limit.`
-    case 'calories':
-      return issue.severity === 'bad'
-        ? `You're over your calories for today.`
-        : `You're close to your calorie limit.`
-    case 'junk':
-      return issue.severity === 'bad'
-        ? `Too much junk crept in today.`
-        : `Some junk crept in today.`
-  }
-}
-
-/** Short follow-on clause when this issue isn't the lead. */
-function issueFollowOn(issue: Issue): string {
-  switch (issue.key) {
-    case 'protein':
-      return issue.severity === 'bad'
-        ? `protein's well short too`
-        : `protein's a bit short too`
-    case 'fat':
-      return issue.severity === 'bad'
-        ? `you're over on fat too`
-        : `you're close to your fat limit`
-    case 'sugar':
-      return issue.severity === 'bad'
-        ? `sugar's over too`
-        : `sugar's getting close`
-    case 'calories':
-      return issue.severity === 'bad'
-        ? `you're over your calories too`
-        : `calories are getting close`
-    case 'junk':
-      return issue.severity === 'bad'
-        ? `too much junk crept in too`
-        : `some junk crept in`
-  }
-}
-
-function composeCoachBody(
-  issues: Issue[],
-  boxedIn: boolean,
-  caloriesLeft: number,
-  proteinLeft: number,
-): string {
-  if (issues.length === 0) {
-    return `Nothing off so far. Keep it going.`
-  }
-
-  if (issues.length === 1) {
-    return issuePrimarySentence(issues[0], boxedIn, caloriesLeft, proteinLeft)
-  }
-
-  // Protein leads when present; remaining issues become natural follow-ons.
-  const lead = issues[0]
-  const rest = issues.slice(1)
-  const primary = issuePrimarySentence(lead, boxedIn, caloriesLeft, proteinLeft)
-
-  if (rest.length === 1) {
-    const follow = issueFollowOn(rest[0])
-    // Capitalize only when starting a new sentence after a period.
-    if (primary.endsWith('.')) {
-      return `${primary} ${follow.charAt(0).toUpperCase()}${follow.slice(1)}.`
-    }
-    return `${primary} ${follow}.`
-  }
-
-  // 3+: join follow-ons with commas and "and"
-  const follows = rest.map(issueFollowOn)
-  const last = follows[follows.length - 1]
-  const head = follows.slice(0, -1).join(', ')
-  const joined = `${head}, and ${last}`
-  if (primary.endsWith('.')) {
-    return `${primary} ${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`
-  }
-  return `${primary} ${joined}.`
-}
-
-function axisTitle(axis: NonNullable<DayPattern['axis']>): string {
-  return axis.charAt(0).toUpperCase() + axis.slice(1)
-}
-
-/** Pattern-aware headline/body when the multi-day story matters more than today alone. */
-function patternCoachCopy(
-  pattern: DayPattern,
-  plainHeadline: string,
-  plainBody: string,
-): { headline: string; body: string } | null {
-  if (pattern.kind === 'steady') return null
-
-  switch (pattern.kind) {
-    case 'chronic': {
-      const axis = pattern.axis
-      const n = pattern.length
-      if (!axis) return null
-      if (axis === 'protein') {
-        return {
-          headline: 'This again',
-          body: `Protein's been short ${n} of the last 7 days. That's not a slip anymore, that's the pattern. Fix the next meal.`,
-        }
-      }
-      if (axis === 'fat') {
-        return {
-          headline: 'Fat, again',
-          body: `That's ${n} days out of 7 over on fat. Something in the routine needs to change.`,
-        }
-      }
-      if (axis === 'sugar') {
-        return {
-          headline: 'Sugar, again',
-          body: `That's ${n} days out of 7 over on sugar. Something in the routine needs to change.`,
-        }
-      }
-      return {
-        headline: 'Calories, again',
-        body: `That's ${n} days out of 7 over on calories. Something in the routine needs to change.`,
-      }
-    }
-
-    case 'streak_bad': {
-      const axis = pattern.axis
-      if (!axis) return null
-      const name = axisTitle(axis)
-      const n = pattern.length
-      if (pattern.intensity === 1) {
-        return {
-          headline: 'Twice now',
-          body: `${name} was off yesterday too. Worth catching before it becomes a thing.`,
-        }
-      }
-      if (pattern.intensity === 2) {
-        return {
-          headline: 'Three in a row',
-          body: `Third day running on ${axis}. What's going on?`,
-        }
-      }
-      return {
-        headline: `${n} days straight`,
-        body: `${name} has been off ${n} days running. This needs a real fix, not a better tomorrow.`,
-      }
-    }
-
-    case 'first_slip':
-      return {
-        headline: plainHeadline,
-        body: `${plainBody} First off day in a while, so no drama. Just don't make it two.`,
-      }
-
-    case 'bounced_back':
-      return {
-        headline: 'Back on it',
-        body: `Clean day after ${pattern.length} rough ones. That's the harder one to do.`,
-      }
-
-    case 'clean_streak':
-      return {
-        headline: `${pattern.length} clean`,
-        body: `${pattern.length} days straight. Keep it boring.`,
-      }
-
-    default:
-      return null
-  }
-}
-
-function buildCoach(
-  overall: DayVerdict['overall'],
-  protein: AxisStatus,
-  fat: AxisStatus,
-  sugar: AxisStatus,
-  calories: AxisStatus,
-  redMealCount: number,
-  boxedIn: boolean,
-  caloriesLeft: number,
-  proteinLeft: number,
-  pattern?: DayPattern,
-): DayVerdict['coach'] {
-  // Collect true issues in priority order: protein, fat, sugar, calories, junk
-  const issues: Issue[] = []
-  if (protein === 'warn' || protein === 'bad') {
-    issues.push({ key: 'protein', severity: protein })
-  }
-  if (fat === 'warn' || fat === 'bad') {
-    issues.push({ key: 'fat', severity: fat })
-  }
-  if (sugar === 'warn' || sugar === 'bad') {
-    issues.push({ key: 'sugar', severity: sugar })
-  }
-  if (calories === 'warn' || calories === 'bad') {
-    issues.push({ key: 'calories', severity: calories })
-  }
-  if (redMealCount >= 2) {
-    issues.push({ key: 'junk', severity: 'bad' })
-  } else if (redMealCount === 1) {
-    issues.push({ key: 'junk', severity: 'warn' })
-  }
-
-  let headline: string
-  if (issues.length === 0) {
-    headline = 'On track'
-  } else if (issues.length >= 3) {
-    headline = 'A few things off today'
-  } else if (issues.length === 2) {
-    headline = 'Two things off today'
-  } else {
-    headline = singleIssueHeadline(issues[0])
-  }
-
-  const body = composeCoachBody(issues, boxedIn, caloriesLeft, proteinLeft)
-
-  if (pattern) {
-    const patterned = patternCoachCopy(pattern, headline, body)
-    if (patterned) {
-      return { severity: overall, headline: patterned.headline, body: patterned.body }
-    }
-  }
-
-  return {
-    severity: overall,
-    headline,
-    body,
-  }
-}
-
 /**
- * Pure coach brain: judge a day from meals, targets, and current time.
- * Optional pattern escalates coach copy across days. No I/O.
+ * Coach brain: judge a day from meals, targets, and current time.
+ * Not pure — pickCoachLine reads/writes localStorage for line rotation.
  */
 export function computeDayVerdict(
   meals: LoggedMeal[],
@@ -430,39 +159,57 @@ export function computeDayVerdict(
     overall = 'good'
   }
 
-  // COACH LINE — first matching priority wins
-  let coachLine = ''
-  if (boxedIn && proteinLeft > 0) {
-    coachLine = `Tight on protein — you've got ${caloriesLeft} cal left but still need ${proteinLeft}g protein. Keep the rest lean and high-protein.`
-  } else if (fat === 'bad') {
-    coachLine = `You're over on fat for the day. Keep the rest lean.`
-  } else if (calories === 'bad') {
-    coachLine = `You're over your calories for today.`
-  } else if (late && protein === 'bad') {
-    coachLine = `You're well short on protein today — you needed ${proteinLeft}g more.`
-  } else if (fat === 'warn') {
-    coachLine = `Watch the fat — you're close to your limit for the day.`
-  } else if (redMealCount >= 2) {
-    coachLine = `Too much junk crept in today.`
-  } else if (late && protein === 'warn') {
-    coachLine = `A bit short on protein — try to close the gap.`
-  } else if (overall === 'good' && consumed.calories > 0) {
-    coachLine = `On track — nice work so far.`
-  }
-  // else: empty (no meals yet, or nothing to say)
+  // Coach state — pattern first, then today's worst issue
+  let state: string | null = null
+  let vars: Record<string, string | number> = {}
 
-  const coach = buildCoach(
-    overall,
-    protein,
-    fat,
-    sugar,
-    calories,
-    redMealCount,
-    boxedIn,
-    caloriesLeft,
-    proteinLeft,
-    pattern,
-  )
+  if (pattern && pattern.kind !== 'steady') {
+    if (pattern.kind === 'chronic') {
+      state = 'CHRONIC'
+      vars = { axis: pattern.axis ?? '', length: pattern.length }
+    } else if (pattern.kind === 'streak_bad') {
+      state =
+        pattern.length === 2 ? 'STREAK_2'
+        : pattern.length === 3 ? 'STREAK_3'
+        : 'STREAK_LONG'
+      vars = { axis: pattern.axis ?? '', length: pattern.length }
+    } else if (pattern.kind === 'bounced_back') {
+      state = 'BOUNCED_BACK'
+      vars = { length: pattern.length }
+    } else if (pattern.kind === 'clean_streak') {
+      state = 'CLEAN_STREAK'
+      vars = { length: pattern.length }
+    } else if (pattern.kind === 'first_slip') {
+      state = 'FIRST_SLIP'
+      vars = {}
+    }
+  }
+
+  if (!state) {
+    if (boxedIn && proteinLeft > 0) {
+      state = 'BOXED_IN'
+      vars = { caloriesLeft, proteinLeft }
+    } else if (protein === 'bad') {
+      state = 'PROTEIN_BAD'
+    } else if (calories === 'bad') {
+      state = 'CALORIES_BAD'
+    } else if (fat === 'bad') {
+      state = 'FAT_BAD'
+    } else if (sugar === 'bad') {
+      state = 'SUGAR_BAD'
+    } else if (redMealCount >= 2) {
+      state = 'JUNK_DAY'
+    } else if (protein === 'warn') {
+      state = 'PROTEIN_WARN'
+    } else if (fat === 'warn') {
+      state = 'FAT_WARN'
+    } else if (overall === 'good' && consumed.calories > 0) {
+      state = 'ON_TRACK'
+    }
+  }
+
+  const line = state ? pickCoachLine(state, vars) : { headline: '', body: '' }
+  const coachLine = line.body ? `${line.headline}. ${line.body}` : ''
 
   return {
     overall,
@@ -473,6 +220,10 @@ export function computeDayVerdict(
     boxedIn,
     consumed,
     coachLine,
-    coach,
+    coach: {
+      severity: overall,
+      headline: line.headline,
+      body: line.body,
+    },
   }
 }
