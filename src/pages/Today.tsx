@@ -833,7 +833,6 @@ function CoachCard({ coach }: { coach: DayVerdict['coach'] }) {
     <div
       style={{
         position: 'relative',
-        transform: 'rotate(-1.2deg)',
         filter:
           'drop-shadow(0 1px 2px rgba(0,0,0,0.08)) drop-shadow(0 6px 12px rgba(0,0,0,0.05))',
       }}
@@ -895,7 +894,7 @@ function CoachCard({ coach }: { coach: DayVerdict['coach'] }) {
 
         <div
           className="min-w-0"
-          style={{ position: 'relative', zIndex: 1, transform: 'rotate(1.2deg)' }}
+          style={{ position: 'relative', zIndex: 1 }}
         >
           <p className="text-[14px] font-semibold leading-snug" style={{ color: accent }}>
             {coach.headline}
