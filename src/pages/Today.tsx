@@ -547,68 +547,79 @@ function Thali({
   const handleSpin = () => {
     if (spinning) return
 
-    // Cancel any in-flight peek so it does not fight the spin
-    dinoRef.current?.cancel()
-    setNumberVisible(true)
-
     if (reduced) {
       onSpinComplete()
       return
     }
 
     setSpinning(true)
-    const D = 1500
-    const E = 'cubic-bezier(0.55,0,0.85,0.35)'
+
+    // Cancel idle peek and start spin reaction (rise / tilt / shake / fall)
+    dinoRef.current?.reactToSpin()
+
+    const HOLD = 500
+    const SPIN_D = 1250
+    const SPIN_E = 'cubic-bezier(.5,0,.88,.4)'
     const chamber = chamberRef.current
     const streak = streakRef.current
     const glow1 = glow1Ref.current
     const glow2 = glow2Ref.current
 
+    // t=0 — chamber lurches back and HOLDS while dino reacts
     chamber?.animate(
       [
-        { transform: 'rotate(0deg)', easing: 'cubic-bezier(0.3,0,0.2,1)' },
-        { transform: 'rotate(-26deg)', offset: 0.14, easing: E },
-        { transform: 'rotate(1300deg)' },
+        { transform: 'rotate(0deg)' },
+        { transform: 'rotate(-26deg)' },
       ],
-      { duration: D, fill: 'forwards' },
+      { duration: 230, fill: 'forwards', easing: 'cubic-bezier(.2,1.3,.4,1)' },
     )
 
-    streak?.animate(
-      [
-        { opacity: 0, transform: 'rotate(0deg)', easing: 'cubic-bezier(0.3,0,0.2,1)' },
-        { opacity: 0.15, transform: 'rotate(-30deg)', offset: 0.14, easing: E },
-        { opacity: 1, transform: 'rotate(1560deg)' },
-      ],
-      { duration: D, fill: 'forwards' },
-    )
-
-    const glowOpts = { duration: D, easing: 'ease-in' as const, fill: 'forwards' as const }
+    // Pre-compress glow during hold so release starts from .97
     glow1?.animate(
-      [
-        { transform: 'scale(1)' },
-        { transform: 'scale(0.97)', offset: 0.14 },
-        { transform: 'scale(1.45)' },
-      ],
-      glowOpts,
+      [{ transform: 'scale(1)' }, { transform: 'scale(0.97)' }],
+      { duration: HOLD, fill: 'forwards', easing: 'ease-out' },
     )
     glow2?.animate(
-      [
-        { transform: 'scale(1)' },
-        { transform: 'scale(0.97)', offset: 0.14 },
-        { transform: 'scale(1.3)' },
-      ],
-      glowOpts,
+      [{ transform: 'scale(1)' }, { transform: 'scale(0.97)' }],
+      { duration: HOLD, fill: 'forwards', easing: 'ease-out' },
     )
 
-    if (chamber) {
-      spinTimersRef.current.push(
-        setTimeout(() => { chamber.style.filter = 'blur(1.5px)' }, 760),
-        setTimeout(() => { chamber.style.filter = 'blur(4.5px)' }, 1080),
-      )
-    }
-
+    // t=HOLD — spin releases
     spinTimersRef.current.push(
-      setTimeout(() => { onSpinComplete() }, 1150),
+      setTimeout(() => {
+        chamber?.animate(
+          [
+            { transform: 'rotate(-26deg)' },
+            { transform: 'rotate(1300deg)' },
+          ],
+          { duration: SPIN_D, fill: 'forwards', easing: SPIN_E },
+        )
+
+        streak?.animate(
+          [
+            { opacity: 0.2, transform: 'rotate(-30deg)' },
+            { opacity: 1, transform: 'rotate(1560deg)' },
+          ],
+          { duration: SPIN_D, fill: 'forwards', easing: SPIN_E },
+        )
+
+        glow1?.animate(
+          [
+            { transform: 'scale(0.97)' },
+            { transform: 'scale(1.45)' },
+          ],
+          { duration: SPIN_D, fill: 'forwards', easing: 'ease-in' },
+        )
+        glow2?.animate(
+          [
+            { transform: 'scale(0.97)' },
+            { transform: 'scale(1.3)' },
+          ],
+          { duration: SPIN_D, fill: 'forwards', easing: 'ease-in' },
+        )
+      }, HOLD),
+
+      setTimeout(() => { onSpinComplete() }, 1140),
     )
   }
 
@@ -785,17 +796,19 @@ function Thali({
           </div>
         </div>
 
-        {/* Dino peek stage — wider than the dino so tilt is not clipped */}
+        {/* Dino peek stage — bottom-anchored; overflow clips duck only */}
         {!reduced && (
           <div
             className="pointer-events-none absolute z-[5]"
             style={{
-              top: '50%',
+              position: 'absolute',
               left: '50%',
-              width: 110,
-              height: 88,
-              transform: 'translate(-50%, -50%)',
+              transform: 'translateX(-50%)',
+              bottom: 'calc(50% - 44px)',
+              width: 150,
+              height: 130,
               overflow: 'hidden',
+              pointerEvents: 'none',
             }}
           >
             <div
