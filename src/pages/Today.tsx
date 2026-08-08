@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, animate } from 'framer-motion'
 import AddMealSheet from '../components/AddMealSheet'
 import QualityIcons from '../components/QualityIcons'
+import DinoPeek, { type DinoPeekHandle } from '../components/DinoPeek'
 import {
   getTodaysMeals,
   sumMacros,
@@ -463,13 +464,14 @@ const VERDICT_GLOW = {
 } as const
 
 function Thali({
-  display, meals, newlyFilledIdx, reduced, verdict,
+  display, meals, newlyFilledIdx, reduced, verdict, onSpinComplete,
 }: {
   display:         ZoneDisplay
   meals:           LoggedMeal[]
   newlyFilledIdx:  number | null
   reduced:         boolean
   verdict:         DayVerdict
+  onSpinComplete:  () => void
 }) {
   // Chronological: oldest first so the first meal fills the first katori
   const chronoMeals = useMemo(
@@ -495,51 +497,189 @@ function Thali({
   } as const
   const breath = BREATH[verdict.overall]
 
+  const [spinning, setSpinning] = useState(false)
+  const [numberVisible, setNumberVisible] = useState(true)
+  const chamberRef = useRef<HTMLDivElement>(null)
+  const glow1Ref = useRef<HTMLDivElement>(null)
+  const glow2Ref = useRef<HTMLDivElement>(null)
+  const streakRef = useRef<HTMLDivElement>(null)
+  const dinoRef = useRef<DinoPeekHandle>(null)
+  const spinTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  const streakGradient = useMemo(() => {
+    const stops: string[] = []
+    for (let d = 0; d < 360; d += 60) {
+      stops.push(`rgba(${g.inner},0) ${d}deg`)
+      stops.push(`rgba(${g.outer},0.9) ${d + 12}deg`)
+      stops.push(`rgba(${g.inner},0) ${d + 26}deg`)
+    }
+    return `conic-gradient(from 0deg, ${stops.join(', ')})`
+  }, [verdict.overall, g.inner, g.outer])
+
+  // Dino peek cycle: 1.5s after mount, then every 13s
+  useEffect(() => {
+    if (reduced) return
+    const timers: ReturnType<typeof setTimeout>[] = []
+    let intervalId: ReturnType<typeof setInterval> | null = null
+
+    const peek = () => {
+      dinoRef.current?.play()
+    }
+
+    timers.push(setTimeout(() => {
+      peek()
+      intervalId = setInterval(peek, 13000)
+    }, 1500))
+
+    return () => {
+      timers.forEach(clearTimeout)
+      if (intervalId) clearInterval(intervalId)
+      dinoRef.current?.cancel()
+    }
+  }, [reduced])
+
+  useEffect(() => {
+    return () => {
+      spinTimersRef.current.forEach(clearTimeout)
+    }
+  }, [])
+
+  const handleSpin = () => {
+    if (spinning) return
+
+    // Cancel any in-flight peek so it does not fight the spin
+    dinoRef.current?.cancel()
+    setNumberVisible(true)
+
+    if (reduced) {
+      onSpinComplete()
+      return
+    }
+
+    setSpinning(true)
+    const D = 1500
+    const E = 'cubic-bezier(0.55,0,0.85,0.35)'
+    const chamber = chamberRef.current
+    const streak = streakRef.current
+    const glow1 = glow1Ref.current
+    const glow2 = glow2Ref.current
+
+    chamber?.animate(
+      [
+        { transform: 'rotate(0deg)', easing: 'cubic-bezier(0.3,0,0.2,1)' },
+        { transform: 'rotate(-26deg)', offset: 0.14, easing: E },
+        { transform: 'rotate(1300deg)' },
+      ],
+      { duration: D, fill: 'forwards' },
+    )
+
+    streak?.animate(
+      [
+        { opacity: 0, transform: 'rotate(0deg)', easing: 'cubic-bezier(0.3,0,0.2,1)' },
+        { opacity: 0.15, transform: 'rotate(-30deg)', offset: 0.14, easing: E },
+        { opacity: 1, transform: 'rotate(1560deg)' },
+      ],
+      { duration: D, fill: 'forwards' },
+    )
+
+    const glowOpts = { duration: D, easing: 'ease-in' as const, fill: 'forwards' as const }
+    glow1?.animate(
+      [
+        { transform: 'scale(1)' },
+        { transform: 'scale(0.97)', offset: 0.14 },
+        { transform: 'scale(1.45)' },
+      ],
+      glowOpts,
+    )
+    glow2?.animate(
+      [
+        { transform: 'scale(1)' },
+        { transform: 'scale(0.97)', offset: 0.14 },
+        { transform: 'scale(1.3)' },
+      ],
+      glowOpts,
+    )
+
+    if (chamber) {
+      spinTimersRef.current.push(
+        setTimeout(() => { chamber.style.filter = 'blur(1.5px)' }, 760),
+        setTimeout(() => { chamber.style.filter = 'blur(4.5px)' }, 1080),
+      )
+    }
+
+    spinTimersRef.current.push(
+      setTimeout(() => { onSpinComplete() }, 1150),
+    )
+  }
+
   return (
     <div className="flex flex-col items-center py-8">
       <div className="relative aspect-square w-full max-w-[230px]">
-        {/* Nebula layers — breathing glow behind opaque plate */}
-        <motion.div
-          key={`nebula-1-${verdict.overall}`}
+        {/* Glow wrappers — WAAPI spin scale; breathing stays on inner motion.div */}
+        <div
+          ref={glow1Ref}
           aria-hidden="true"
           className="pointer-events-none absolute rounded-full"
-          style={{
-            inset: '-8%',
-            zIndex: 0,
-            filter: 'blur(26px)',
-            background: `radial-gradient(circle at 46% 42%, rgba(${g.outer},0.55) 0%, transparent 66%)`,
-          }}
-          animate={
-            reduced
-              ? { scale: 1, opacity: 0.7 }
-              : { scale: [0.94, 1.10, 0.94], opacity: [0.45, 1, 0.45] }
-          }
-          transition={
-            reduced
-              ? { duration: 0 }
-              : { duration: breath.a, repeat: Infinity, ease: [0.37, 0, 0.63, 1], times: [0, 0.42, 1] }
-          }
-        />
-        <motion.div
-          key={`nebula-2-${verdict.overall}`}
+          style={{ inset: '-8%', zIndex: 0 }}
+        >
+          <motion.div
+            key={`nebula-1-${verdict.overall}`}
+            className="absolute inset-0 rounded-full"
+            style={{
+              filter: 'blur(26px)',
+              background: `radial-gradient(circle at 46% 42%, rgba(${g.outer},0.55) 0%, transparent 66%)`,
+            }}
+            animate={
+              reduced
+                ? { scale: 1, opacity: 0.7 }
+                : { scale: [0.94, 1.10, 0.94], opacity: [0.45, 1, 0.45] }
+            }
+            transition={
+              reduced
+                ? { duration: 0 }
+                : { duration: breath.a, repeat: Infinity, ease: [0.37, 0, 0.63, 1], times: [0, 0.42, 1] }
+            }
+          />
+        </div>
+        <div
+          ref={glow2Ref}
           aria-hidden="true"
           className="pointer-events-none absolute rounded-full"
+          style={{ inset: '-3%', zIndex: 0 }}
+        >
+          <motion.div
+            key={`nebula-2-${verdict.overall}`}
+            className="absolute inset-0 rounded-full"
+            style={{
+              filter: 'blur(16px)',
+              background: `radial-gradient(circle at 56% 58%, rgba(${g.inner},0.42) 0%, transparent 60%)`,
+            }}
+            animate={
+              reduced
+                ? { scale: 1, opacity: 0.6 }
+                : { scale: [1.02, 0.90, 1.02], opacity: [0.85, 0.35, 0.85] }
+            }
+            transition={
+              reduced
+                ? { duration: 0 }
+                : { duration: breath.b, repeat: Infinity, ease: [0.37, 0, 0.63, 1], times: [0, 0.42, 1] }
+            }
+          />
+        </div>
+
+        {/* Streak layer — spin motion blur trails */}
+        <div
+          ref={streakRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute"
           style={{
-            inset: '-3%',
+            inset: '-14%',
             zIndex: 0,
-            filter: 'blur(16px)',
-            background: `radial-gradient(circle at 56% 58%, rgba(${g.inner},0.42) 0%, transparent 60%)`,
+            opacity: 0,
+            borderRadius: '50%',
+            filter: 'blur(7px)',
+            background: streakGradient,
           }}
-          animate={
-            reduced
-              ? { scale: 1, opacity: 0.6 }
-              : { scale: [1.02, 0.90, 1.02], opacity: [0.85, 0.35, 0.85] }
-          }
-          transition={
-            reduced
-              ? { duration: 0 }
-              : { duration: breath.b, repeat: Infinity, ease: [0.37, 0, 0.63, 1], times: [0, 0.42, 1] }
-          }
         />
 
         {/* Opaque plate surface — blocks glow from washing the face */}
@@ -553,93 +693,147 @@ function Thali({
           }}
         />
 
-        {/* Katoris + center — on top of the opaque surface */}
-        <div className="absolute inset-0 z-[2] flex items-center justify-center rounded-full">
-        {/* Katoris — outer div = position, inner motion.div = spring/fade */}
-        {positions.map((pos, i) => {
-          const meal          = chronoMeals[i]
-          const isFilled      = !!meal
-          const isNewlyFilled = i === newlyFilledIdx
-          const isNew         = isNewlyFilled && !reduced
-          const tier          = meal ? mealTier(meal) : null
-          const colors        = tier ? TIER_KATORI[tier] : null
+        {/* Chamber — katoris only; rotates on spin */}
+        <div ref={chamberRef} className="absolute inset-0 z-[2] rounded-full">
+          {positions.map((pos, i) => {
+            const meal          = chronoMeals[i]
+            const isFilled      = !!meal
+            const isNewlyFilled = i === newlyFilledIdx
+            const isNew         = isNewlyFilled && !reduced
+            const tier          = meal ? mealTier(meal) : null
+            const colors        = tier ? TIER_KATORI[tier] : null
 
-          const kInit = isNewlyFilled && reduced ? { opacity: 0 }
-                      : isNew                   ? { scale: 0, opacity: 0 }
-                      : false as const
-          const kTransition = isNewlyFilled && reduced
-            ? { duration: 0.15, ease: 'easeOut' as const }
-            : isNew
-              ? { type: 'spring' as const, stiffness: 300, damping: 20 }
-              : { duration: 0 }
+            const kInit = isNewlyFilled && reduced ? { opacity: 0 }
+                        : isNew                   ? { scale: 0, opacity: 0 }
+                        : false as const
+            const kTransition = isNewlyFilled && reduced
+              ? { duration: 0.15, ease: 'easeOut' as const }
+              : isNew
+                ? { type: 'spring' as const, stiffness: 300, damping: 20 }
+                : { duration: 0 }
 
-          return (
-            <div
-              key={`${slotCount}-${i}`}
-              className="absolute"
-              style={{ top: pos.top, left: pos.left, transform: 'translate(-50%,-50%)' }}
-            >
-              <AnimatePresence mode="wait">
-                {isFilled && colors ? (
-                  <motion.div
-                    key={meal.id}
-                    className="flex items-center justify-center rounded-full"
-                    style={{
-                      width: sizePx,
-                      height: sizePx,
-                      backgroundColor: colors.fill,
-                      border: `1.5px solid ${colors.ring}`,
-                    }}
-                    initial={kInit}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={kTransition}
-                  >
-                    {showCal && (
-                      <span
-                        className="font-semibold leading-none"
-                        style={{
-                          fontSize: sizePx >= 42 ? 12 : 11,
-                          color: colors.number,
-                        }}
-                      >
-                        {meal.calories}
-                      </span>
-                    )}
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="empty"
-                    className="rounded-full"
-                    style={{ width: sizePx, height: sizePx, border: emptyBorder }}
-                    initial={false}
-                    animate={{ opacity: 1 }}
-                  />
-                )}
-              </AnimatePresence>
-            </div>
-          )
-        })}
+            return (
+              <div
+                key={`${slotCount}-${i}`}
+                className="absolute"
+                style={{ top: pos.top, left: pos.left, transform: 'translate(-50%,-50%)' }}
+              >
+                <AnimatePresence mode="wait">
+                  {isFilled && colors ? (
+                    <motion.div
+                      key={meal.id}
+                      className="flex items-center justify-center rounded-full"
+                      style={{
+                        width: sizePx,
+                        height: sizePx,
+                        backgroundColor: colors.fill,
+                        border: `1.5px solid ${colors.ring}`,
+                      }}
+                      initial={kInit}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={kTransition}
+                    >
+                      {showCal && (
+                        <span
+                          className="font-semibold leading-none"
+                          style={{
+                            fontSize: sizePx >= 42 ? 12 : 11,
+                            color: colors.number,
+                          }}
+                        >
+                          {meal.calories}
+                        </span>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="empty"
+                      className="rounded-full"
+                      style={{ width: sizePx, height: sizePx, border: emptyBorder }}
+                      initial={false}
+                      animate={{ opacity: 1 }}
+                    />
+                  )}
+                </AnimatePresence>
+              </div>
+            )
+          })}
+        </div>
 
-        {/* Center number + sublabel */}
-        <div className="z-10 flex flex-col items-center px-8">
-          <p
-            className="text-[32px] font-bold leading-none tracking-tight"
-            style={{ color: display.numberColor }}
+        {/* Centre — number stays still while chamber spins */}
+        <div className="pointer-events-none absolute inset-0 z-[3] flex items-center justify-center rounded-full">
+          <div
+            className="flex flex-col items-center px-8 transition-opacity duration-[350ms]"
+            style={{ opacity: numberVisible ? 1 : 0 }}
           >
-            <CountUp
-              target={display.number}
-              duration={600}
-              reduced={reduced}
-              locale
+            <p
+              className="text-[32px] font-bold leading-none tracking-tight"
               style={{ color: display.numberColor }}
-            />
-            {display.showCalUnit && (
-              <span className="ml-1 text-[15px] font-medium text-gray-400">cal</span>
-            )}
-          </p>
-          <p className="mt-1.5 text-[12px] text-gray-400">{display.sublabel}</p>
+            >
+              <CountUp
+                target={display.number}
+                duration={600}
+                reduced={reduced}
+                locale
+                style={{ color: display.numberColor }}
+              />
+              {display.showCalUnit && (
+                <span className="ml-1 text-[15px] font-medium text-gray-400">cal</span>
+              )}
+            </p>
+            <p className="mt-1.5 text-[12px] text-gray-400">{display.sublabel}</p>
+          </div>
         </div>
-        </div>
+
+        {/* Dino peek stage — wider than the dino so tilt is not clipped */}
+        {!reduced && (
+          <div
+            className="pointer-events-none absolute z-[5]"
+            style={{
+              top: '50%',
+              left: '50%',
+              width: 110,
+              height: 88,
+              transform: 'translate(-50%, -50%)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                left: '50%',
+                bottom: 0,
+                transform: 'translateX(-50%)',
+              }}
+            >
+              <DinoPeek
+                ref={dinoRef}
+                size={70}
+                onPeekStart={() => setNumberVisible(false)}
+                onPeekEnd={() => setNumberVisible(true)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Hit area — real button over the centre */}
+        <button
+          type="button"
+          aria-label="Suggest what to eat"
+          onClick={handleSpin}
+          className="appearance-none border-0 bg-transparent p-0 outline-none focus:outline-none focus-visible:outline-none"
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            width: 100,
+            height: 100,
+            transform: 'translate(-50%,-50%)',
+            borderRadius: '50%',
+            zIndex: 5,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        />
       </div>
     </div>
   )
@@ -1176,6 +1370,7 @@ export default function Today() {
                 newlyFilledIdx={newKatoriIdx}
                 reduced={prefersReduced}
                 verdict={verdict}
+                onSpinComplete={() => navigate('/suggest')}
               />
             </motion.div>
 
