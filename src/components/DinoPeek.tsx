@@ -1,8 +1,8 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 
 export interface DinoPeekHandle {
-  /** Start a random peek variant. Returns ms until fully ducked. */
-  play: () => number
+  /** Start a peek. Optional variant; otherwise picks randomly. Returns ms until fully ducked. */
+  play: (variant?: 'A' | 'B' | 'C' | 'D' | 'E') => number
   cancel: () => void
 }
 
@@ -12,7 +12,7 @@ interface DinoPeekProps {
   mirrored?: boolean
 }
 
-type Variant = 'A' | 'B' | 'C' | 'D'
+type Variant = 'A' | 'B' | 'C' | 'D' | 'E'
 
 const REST = 'translateY(0%)'
 const HIDDEN = 'translateY(110%)'
@@ -22,6 +22,7 @@ const DinoPeek = forwardRef<DinoPeekHandle, DinoPeekProps>(function DinoPeek(
   ref,
 ) {
   const height = Math.round(size * 800 / 870)
+  const [revealed, setRevealed] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const tiltRef = useRef<SVGGElement>(null)
   const eyeRef = useRef<SVGGElement>(null)
@@ -47,21 +48,29 @@ const DinoPeek = forwardRef<DinoPeekHandle, DinoPeekProps>(function DinoPeek(
   }
 
   useImperativeHandle(ref, () => ({
-    play() {
+    play(chosen?: Variant) {
       clear()
       resetTransforms()
+      setRevealed(true)
 
       const root = rootRef.current
       const tilt = tiltRef.current
       const eye = eyeRef.current
       const pupil = pupilRef.current
-      if (!root || !tilt || !eye || !pupil) return 0
+      if (!root || !tilt || !eye || !pupil) {
+        setRevealed(false)
+        return 0
+      }
 
       const track = (a: Animation | undefined) => {
         if (a) animsRef.current.push(a)
       }
       const at = (ms: number, fn: () => void) => {
         timersRef.current.push(setTimeout(fn, ms))
+      }
+      const finish = (total: number) => {
+        timersRef.current.push(setTimeout(() => setRevealed(false), total))
+        return total
       }
 
       const blink = () => {
@@ -86,7 +95,7 @@ const DinoPeek = forwardRef<DinoPeekHandle, DinoPeekProps>(function DinoPeek(
       }
 
       const variants: Variant[] = ['A', 'B', 'C', 'D']
-      const variant = variants[Math.floor(Math.random() * variants.length)]!
+      const variant = chosen ?? variants[Math.floor(Math.random() * variants.length)]!
 
       if (variant === 'A') {
         // Curious ~2.4s
@@ -135,7 +144,7 @@ const DinoPeek = forwardRef<DinoPeekHandle, DinoPeekProps>(function DinoPeek(
           ))
         })
         at(2400, () => duck(REST, 360))
-        return 2760
+        return finish(2760)
       }
 
       if (variant === 'B') {
@@ -167,7 +176,7 @@ const DinoPeek = forwardRef<DinoPeekHandle, DinoPeekProps>(function DinoPeek(
           ))
         })
         at(1100, () => duck(REST, 300))
-        return 1400
+        return finish(1400)
       }
 
       if (variant === 'C') {
@@ -203,7 +212,109 @@ const DinoPeek = forwardRef<DinoPeekHandle, DinoPeekProps>(function DinoPeek(
           ))
         })
         at(2500, () => duck(REST, 380))
-        return 2880
+        return finish(2880)
+      }
+
+      if (variant === 'E') {
+        // Cautious peek ~4.4s — double-tap only, not in random pool
+        track(root.animate(
+          [
+            { transform: HIDDEN },
+            { transform: 'translateY(58%)' },
+          ],
+          { duration: 420, fill: 'forwards', easing: 'cubic-bezier(.25,.8,.35,1)' },
+        ))
+        track(pupil.animate(
+          [
+            { transform: 'translate(0px, 0px) scale(1)' },
+            { transform: 'translate(0px, 0px) scale(0.72)' },
+          ],
+          { duration: 300, fill: 'forwards', easing: 'ease-out' },
+        ))
+        at(560, () => {
+          track(pupil.animate(
+            [
+              { transform: 'translate(0px, 0px) scale(0.72)' },
+              { transform: 'translate(-22px, 4px) scale(0.72)' },
+            ],
+            { duration: 340, fill: 'forwards' },
+          ))
+        })
+        at(1000, () => {
+          track(pupil.animate(
+            [
+              { transform: 'translate(-22px, 4px) scale(0.72)' },
+              { transform: 'translate(20px, 4px) scale(0.72)' },
+            ],
+            { duration: 360, fill: 'forwards' },
+          ))
+        })
+        at(1500, blink)
+        at(1750, () => {
+          track(root.animate(
+            [
+              { transform: 'translateY(58%)' },
+              { transform: REST },
+            ],
+            { duration: 520, fill: 'forwards', easing: 'cubic-bezier(.3,1.25,.45,1)' },
+          ))
+        })
+        at(1780, () => {
+          track(pupil.animate(
+            [
+              { transform: 'translate(20px, 4px) scale(0.72)' },
+              { transform: 'translate(0px, 0px) scale(1)' },
+            ],
+            { duration: 300, fill: 'forwards' },
+          ))
+        })
+        at(1800, () => {
+          track(eye.animate(
+            [
+              { transform: 'scale(1)' },
+              { transform: 'scale(1.06)' },
+            ],
+            { duration: 320, fill: 'forwards' },
+          ))
+        })
+        at(2350, () => {
+          track(tilt.animate(
+            [{ transform: 'rotate(0deg)' }, { transform: 'rotate(11deg)' }],
+            { duration: 380, fill: 'forwards', easing: 'cubic-bezier(.3,.9,.3,1)' },
+          ))
+        })
+        at(2850, () => {
+          track(tilt.animate(
+            [{ transform: 'rotate(11deg)' }, { transform: 'rotate(-9deg)' }],
+            { duration: 420, fill: 'forwards', easing: 'cubic-bezier(.3,.9,.3,1)' },
+          ))
+        })
+        at(3350, blink)
+        at(3450, () => {
+          track(tilt.animate(
+            [{ transform: 'rotate(-9deg)' }, { transform: 'rotate(0deg)' }],
+            { duration: 340, fill: 'forwards' },
+          ))
+        })
+        at(3500, () => {
+          track(eye.animate(
+            [
+              { transform: 'scale(1.06)' },
+              { transform: 'scale(1)' },
+            ],
+            { duration: 280, fill: 'forwards' },
+          ))
+        })
+        at(3950, () => {
+          track(root.animate(
+            [
+              { transform: REST },
+              { transform: HIDDEN },
+            ],
+            { duration: 420, fill: 'forwards', easing: 'cubic-bezier(.5,0,.85,.5)' },
+          ))
+        })
+        return finish(4370)
       }
 
       // Variant D — startled ~1.8s
@@ -263,12 +374,13 @@ const DinoPeek = forwardRef<DinoPeekHandle, DinoPeekProps>(function DinoPeek(
       })
       at(1200, blink)
       at(1600, () => duck(REST, 320))
-      return 1920
+      return finish(1920)
     },
 
     cancel() {
       clear()
       resetTransforms()
+      setRevealed(false)
     },
   }))
 
@@ -279,6 +391,8 @@ const DinoPeek = forwardRef<DinoPeekHandle, DinoPeekProps>(function DinoPeek(
         width: size,
         height,
         transform: HIDDEN,
+        opacity: revealed ? 1 : 0,
+        visibility: revealed ? 'visible' : 'hidden',
         willChange: 'transform',
       }}
     >

@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect, useLayoutEffect } from 'react'
+import { useState, useRef, useMemo, useEffect, useLayoutEffect, forwardRef, useImperativeHandle } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence, useReducedMotion, useMotionValue, animate } from 'framer-motion'
@@ -959,59 +959,57 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
 }
 
 // ─── Card dino host ───────────────────────────────────────────────────────────
-/** Random gap between peeks (ms). */
-function nextPeekGap() {
-  return 14000 + Math.floor(Math.random() * 12001)
+export interface CardDinoHandle {
+  peek: (variant?: 'A' | 'B' | 'C' | 'D' | 'E') => void
 }
 
 /**
  * Relatively positioned wrapper that hosts a dino peeking from the card's top edge.
  * Stage sits above the card (bottom: 100%) and paints behind it (z-index 0).
+ * Peeks are event-driven via the imperative handle — nothing self-schedules.
  */
-function CardDinoHost({
-  active,
-  reduced,
-  children,
-}: {
-  active:   boolean
+const CardDinoHost = forwardRef<CardDinoHandle, {
   reduced:  boolean
   children: React.ReactNode
-}) {
+}>(function CardDinoHost({ reduced, children }, ref) {
   const dinoRef = useRef<DinoPeekHandle>(null)
   const [corner, setCorner] = useState<'left' | 'right'>('right')
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const busyRef = useRef(false)
+  const reducedRef = useRef(reduced)
+  reducedRef.current = reduced
 
   useEffect(() => {
-    if (!active || reduced) return
-
-    const clearTimers = () => {
+    return () => {
       timersRef.current.forEach(clearTimeout)
       timersRef.current = []
-    }
-
-    const schedule = (delay: number) => {
-      timersRef.current.push(setTimeout(() => {
-        const next: 'left' | 'right' = Math.random() < 0.5 ? 'left' : 'right'
-        setCorner(next)
-        // Wait so left/right + SVG scaleX(-1) commit before animating
-        timersRef.current.push(setTimeout(() => {
-          const duration = dinoRef.current?.play() ?? 0
-          schedule(duration + nextPeekGap())
-        }, 48))
-      }, delay))
-    }
-
-    schedule(2500)
-
-    return () => {
-      clearTimers()
+      busyRef.current = false
       dinoRef.current?.cancel()
     }
-  }, [active, reduced])
+  }, [])
+
+  useImperativeHandle(ref, () => ({
+    peek(variant?: 'A' | 'B' | 'C' | 'D' | 'E') {
+      if (reducedRef.current) return
+      if (busyRef.current) return
+      busyRef.current = true
+
+      const next: 'left' | 'right' = Math.random() < 0.5 ? 'left' : 'right'
+      setCorner(next)
+
+      // Wait so left/right + SVG scaleX(-1) commit before animating
+      timersRef.current.push(setTimeout(() => {
+        const duration = dinoRef.current?.play(variant) ?? 0
+        timersRef.current.push(setTimeout(() => {
+          busyRef.current = false
+        }, duration))
+      }, 48))
+    },
+  }))
 
   return (
     <div className="relative">
-      {active && !reduced && (
+      {!reduced && (
         <div
           className="pointer-events-none absolute"
           style={{
@@ -1031,7 +1029,7 @@ function CardDinoHost({
       </div>
     </div>
   )
-}
+})
 
 // ─── Coach card ───────────────────────────────────────────────────────────────
 function CoachCard({ coach }: { coach: DayVerdict['coach'] }) {
@@ -1162,6 +1160,12 @@ export default function Today() {
   >(null)
   const undoTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const katoriTimerRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const dinoHostRef = useRef<CardDinoHandle>(null)
+  const prevVerdictRef = useRef<DayVerdict['overall'] | null>(null)
+  const appOpenPeekDoneRef = useRef(false)
+  const dinoEventTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const lastTapRef = useRef(0)
+  const [mealsHydrated, setMealsHydrated] = useState(false)
 
   const [targetsState, setTargetsState] = useState<
     | { status: 'loading' }
@@ -1248,7 +1252,7 @@ export default function Today() {
         getTodaysMeals(),
         getWeekRecords(0, resolver),
       ])
-      if (active) { setMeals(m); setWeek(w) }
+      if (active) { setMeals(m); setWeek(w); setMealsHydrated(true) }
     })()
     return () => { active = false }
   }, [mealVersion, targetsState, resolver])
@@ -1270,6 +1274,54 @@ export default function Today() {
     ? computeDayVerdict(meals, targets, now, pattern)
     : null
 
+  // Clear dino event timers / idle interval on unmount
+  useEffect(() => {
+    return () => {
+      dinoEventTimersRef.current.forEach(clearTimeout)
+      dinoEventTimersRef.current = []
+    }
+  }, [])
+
+  // VERDICT WORSENED — startled peek
+  useEffect(() => {
+    if (!verdict) return
+    const RANK = { good: 0, warn: 1, bad: 2 } as const
+    const prev = prevVerdictRef.current
+    if (prev !== null && RANK[verdict.overall] > RANK[prev]) {
+      dinoHostRef.current?.peek('D')
+    }
+    prevVerdictRef.current = verdict.overall
+  }, [verdict?.overall])
+
+  // APP OPEN — one-shot peek if there is already a meal today
+  useEffect(() => {
+    if (appOpenPeekDoneRef.current || prefersReduced) return
+    if (!mealsHydrated || !verdict) return
+    appOpenPeekDoneRef.current = true
+    if (meals.length === 0) return
+    const t = setTimeout(() => { dinoHostRef.current?.peek() }, 2500)
+    dinoEventTimersRef.current.push(t)
+  }, [mealsHydrated, verdict, meals.length, prefersReduced])
+
+  // IDLE, RARELY — 90s coin-flip peek
+  useEffect(() => {
+    if (prefersReduced) return
+    const id = setInterval(() => {
+      if (Math.random() < 0.35) dinoHostRef.current?.peek()
+    }, 90000)
+    return () => { clearInterval(id) }
+  }, [prefersReduced])
+
+  const handleStripTap = () => {
+    const now = Date.now()
+    if (now - lastTapRef.current < 320) {
+      dinoHostRef.current?.peek('E')
+      lastTapRef.current = 0
+    } else {
+      lastTapRef.current = now
+    }
+  }
+
   // Called by AddMealSheet after sheet exit. `loggedMeal` is only set for chip instant-logs.
   const handleMealLogged = (loggedMeal?: LoggedMeal) => {
     const newIdx = meals.length   // current count = 0-based index of the new katori
@@ -1284,6 +1336,11 @@ export default function Today() {
       setTimeout(() => setNewKatoriIdx(newIdx), 1200),
       setTimeout(() => setNewKatoriIdx(null), 1900),
     ]
+
+    // React after the katori spring finishes
+    dinoEventTimersRef.current.push(
+      setTimeout(() => { dinoHostRef.current?.peek() }, 2100),
+    )
 
     setMealVersion(v => v + 1)
 
@@ -1406,19 +1463,24 @@ export default function Today() {
 
             {/* Macro strip */}
             <CardDinoHost
-              active={true}
+              ref={dinoHostRef}
               reduced={prefersReduced}
             >
-              <motion.div {...fadeUp(0.14, prefersReduced)}>
-                <MacroStrip
-                  targets={targets}
-                  consumed={consumed}
-                  dayName={dayName}
-                  mealsCount={meals.length}
-                  reduced={prefersReduced}
-                  verdict={verdict}
-                />
-              </motion.div>
+              <div
+                onClick={handleStripTap}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <motion.div {...fadeUp(0.14, prefersReduced)}>
+                  <MacroStrip
+                    targets={targets}
+                    consumed={consumed}
+                    dayName={dayName}
+                    mealsCount={meals.length}
+                    reduced={prefersReduced}
+                    verdict={verdict}
+                  />
+                </motion.div>
+              </div>
             </CardDinoHost>
 
             {/* Recent meals */}
