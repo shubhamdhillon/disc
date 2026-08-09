@@ -498,12 +498,10 @@ function Thali({
   const breath = BREATH[verdict.overall]
 
   const [spinning, setSpinning] = useState(false)
-  const [numberVisible, setNumberVisible] = useState(true)
   const chamberRef = useRef<HTMLDivElement>(null)
   const glow1Ref = useRef<HTMLDivElement>(null)
   const glow2Ref = useRef<HTMLDivElement>(null)
   const streakRef = useRef<HTMLDivElement>(null)
-  const dinoRef = useRef<DinoPeekHandle>(null)
   const spinTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
 
   const streakGradient = useMemo(() => {
@@ -515,28 +513,6 @@ function Thali({
     }
     return `conic-gradient(from 0deg, ${stops.join(', ')})`
   }, [verdict.overall, g.inner, g.outer])
-
-  // Dino peek cycle: 1.5s after mount, then every 13s
-  useEffect(() => {
-    if (reduced) return
-    const timers: ReturnType<typeof setTimeout>[] = []
-    let intervalId: ReturnType<typeof setInterval> | null = null
-
-    const peek = () => {
-      dinoRef.current?.play()
-    }
-
-    timers.push(setTimeout(() => {
-      peek()
-      intervalId = setInterval(peek, 13000)
-    }, 1500))
-
-    return () => {
-      timers.forEach(clearTimeout)
-      if (intervalId) clearInterval(intervalId)
-      dinoRef.current?.cancel()
-    }
-  }, [reduced])
 
   useEffect(() => {
     return () => {
@@ -554,9 +530,6 @@ function Thali({
 
     setSpinning(true)
 
-    // Cancel idle peek and start spin reaction (rise / tilt / shake / fall)
-    dinoRef.current?.reactToSpin()
-
     const HOLD = 500
     const SPIN_D = 1250
     const SPIN_E = 'cubic-bezier(.5,0,.88,.4)'
@@ -565,7 +538,7 @@ function Thali({
     const glow1 = glow1Ref.current
     const glow2 = glow2Ref.current
 
-    // t=0 — chamber lurches back and HOLDS while dino reacts
+    // t=0 — chamber lurches back and HOLDS
     chamber?.animate(
       [
         { transform: 'rotate(0deg)' },
@@ -773,10 +746,7 @@ function Thali({
 
         {/* Centre — number stays still while chamber spins */}
         <div className="pointer-events-none absolute inset-0 z-[3] flex items-center justify-center rounded-full">
-          <div
-            className="flex flex-col items-center px-8 transition-opacity duration-[350ms]"
-            style={{ opacity: numberVisible ? 1 : 0 }}
-          >
+          <div className="flex flex-col items-center px-8">
             <p
               className="text-[32px] font-bold leading-none tracking-tight"
               style={{ color: display.numberColor }}
@@ -795,39 +765,6 @@ function Thali({
             <p className="mt-1.5 text-[12px] text-gray-400">{display.sublabel}</p>
           </div>
         </div>
-
-        {/* Dino peek stage — bottom-anchored; overflow clips duck only */}
-        {!reduced && (
-          <div
-            className="pointer-events-none absolute z-[5]"
-            style={{
-              position: 'absolute',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              bottom: 'calc(50% - 44px)',
-              width: 150,
-              height: 130,
-              overflow: 'hidden',
-              pointerEvents: 'none',
-            }}
-          >
-            <div
-              style={{
-                position: 'absolute',
-                left: '50%',
-                bottom: 0,
-                transform: 'translateX(-50%)',
-              }}
-            >
-              <DinoPeek
-                ref={dinoRef}
-                size={70}
-                onPeekStart={() => setNumberVisible(false)}
-                onPeekEnd={() => setNumberVisible(true)}
-              />
-            </div>
-          </div>
-        )}
 
         {/* Hit area — real button over the centre */}
         <button
@@ -1017,6 +954,81 @@ function WeekStrip({ week }: { week: DailyRecord[] }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ─── Card dino host ───────────────────────────────────────────────────────────
+/** Random gap between peeks (ms). */
+function nextPeekGap() {
+  return 14000 + Math.floor(Math.random() * 12001)
+}
+
+/**
+ * Relatively positioned wrapper that hosts a dino peeking from the card's top edge.
+ * Stage sits above the card (bottom: 100%) and paints behind it (z-index 0).
+ */
+function CardDinoHost({
+  active,
+  reduced,
+  children,
+}: {
+  active:   boolean
+  reduced:  boolean
+  children: React.ReactNode
+}) {
+  const dinoRef = useRef<DinoPeekHandle>(null)
+  const [corner, setCorner] = useState<'left' | 'right'>('right')
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+
+  useEffect(() => {
+    if (!active || reduced) return
+
+    const clearTimers = () => {
+      timersRef.current.forEach(clearTimeout)
+      timersRef.current = []
+    }
+
+    const schedule = (delay: number) => {
+      timersRef.current.push(setTimeout(() => {
+        const next: 'left' | 'right' = Math.random() < 0.5 ? 'left' : 'right'
+        setCorner(next)
+        // Wait so left/right + SVG scaleX(-1) commit before animating
+        timersRef.current.push(setTimeout(() => {
+          const duration = dinoRef.current?.play() ?? 0
+          schedule(duration + nextPeekGap())
+        }, 48))
+      }, delay))
+    }
+
+    schedule(2500)
+
+    return () => {
+      clearTimers()
+      dinoRef.current?.cancel()
+    }
+  }, [active, reduced])
+
+  return (
+    <div className="relative">
+      {active && !reduced && (
+        <div
+          className="pointer-events-none absolute"
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            ...(corner === 'right' ? { right: 24 } : { left: 24 }),
+            width: 62,
+            zIndex: 0,
+            pointerEvents: 'none',
+          }}
+        >
+          <DinoPeek ref={dinoRef} mirrored={corner === 'left'} />
+        </div>
+      )}
+      <div className="relative" style={{ zIndex: 1 }}>
+        {children}
+      </div>
     </div>
   )
 }
@@ -1393,16 +1405,21 @@ export default function Today() {
             </motion.div>
 
             {/* Macro strip */}
-            <motion.div {...fadeUp(0.14, prefersReduced)}>
-              <MacroStrip
-                targets={targets}
-                consumed={consumed}
-                dayName={dayName}
-                mealsCount={meals.length}
-                reduced={prefersReduced}
-                verdict={verdict}
-              />
-            </motion.div>
+            <CardDinoHost
+              active={true}
+              reduced={prefersReduced}
+            >
+              <motion.div {...fadeUp(0.14, prefersReduced)}>
+                <MacroStrip
+                  targets={targets}
+                  consumed={consumed}
+                  dayName={dayName}
+                  mealsCount={meals.length}
+                  reduced={prefersReduced}
+                  verdict={verdict}
+                />
+              </motion.div>
+            </CardDinoHost>
 
             {/* Recent meals */}
             <motion.div {...fadeUp(0.22, prefersReduced)}>
