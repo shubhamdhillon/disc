@@ -58,4 +58,6 @@
   @keyframes welcome-rise { to { opacity: 1; translate: 0 0; } }
   @keyframes welcome-draw { to { stroke-dashoffset: 0; } }
   .welcome__second { margin-top: 14px; }
+  /* Testing aid: which version is on the phone. Remove before launch. */
+  .welcome__build { margin-top: 10px; text-align: center; color: var(--surface-border); font-size: 11px; font-weight: var(--weight-bold); }
 }

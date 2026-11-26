@@ -53,6 +53,8 @@
     line-height: 1.15;
   }
 
+  .question__title--alone { margin-bottom: 26px; }
+
   .question__help {
     margin-bottom: 26px;
     color: var(--text-muted);

@@ -17,6 +17,7 @@ export default function Welcome({ onStart, onSignIn }: { onStart: () => void; on
       <div className="welcome__footer welcome__in" style={delay(820)}>
         <button className="button" onClick={onStart}>Start my journey</button>
         <button className="button button--quiet welcome__second" onClick={onSignIn}>I already have an account</button>
+        <p className="welcome__build">Test build {__BUILD__}</p>
       </div>
     </main>
   )

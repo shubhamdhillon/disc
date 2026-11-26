@@ -88,14 +88,13 @@ const STEPS: Step[] = [
   // ── You ──────────────────────────────────────────────
   {
     id: 'fork', section: 0,
-    title: () => 'Do you already have a plan, or should we build one?',
-    help: () => 'Either way works. You can change anything later.',
+    title: () => 'Got a plan already?',
     ready: a => !!a.path,
     body: (a, set) => (
       <OptionRows<Path>
         options={[
-          { value: 'build', label: 'Build one for me', hint: 'Quick taps, about 2 minutes' },
-          { value: 'own', label: 'I have my own numbers', hint: 'Calories, protein, workouts. About a minute' },
+          { value: 'build', label: 'Not yet, make me one' },
+          { value: 'own', label: 'Yes, I have my numbers' },
         ]}
         selected={one(a.path)}
         onPick={v => set({ path: v })}
@@ -475,7 +474,7 @@ export default function Onboarding({ onExit, onDone }: { onExit: () => void; onD
         </div>
       </div>
       <p className="question__section">{SECTIONS[step.section]}</p>
-      <h1 className="question__title">{step.title(answers)}</h1>
+      <h1 className={`question__title${help ? '' : ' question__title--alone'}`}>{step.title(answers)}</h1>
       {help && <p className="question__help">{help}</p>}
       <div className="question__body">{step.body(answers, set)}</div>
       <div className="question__footer">
