@@ -3,7 +3,9 @@ import BackButton from '../components/BackButton'
 import { supabase } from '../lib/supabase'
 import { friendlyError } from './Email'
 
-const LENGTH = 6
+/* Must match Supabase → Authentication → Sign In / Providers → Email →
+   "Email OTP Length". Set in Vercel as VITE_OTP_LENGTH if it isn't 6. */
+const LENGTH = Number(import.meta.env.VITE_OTP_LENGTH) || 6
 const RESEND_AFTER = 60
 
 export default function Code({ email, onBack, onVerified }: {

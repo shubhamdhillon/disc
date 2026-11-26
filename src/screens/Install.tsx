@@ -5,6 +5,9 @@ import { isIOS, isIOSNotSafari } from '../lib/device'
 const Dots = () => (
   <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="3" cy="8" r=".6" /><circle cx="8" cy="8" r=".6" /><circle cx="13" cy="8" r=".6" /></svg>
 )
+const Menu = () => (
+  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 4.5h11M2.5 8h11M2.5 11.5h7" /></svg>
+)
 const Share = () => (
   <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 10V2M5 4.5 8 1.5l3 3M4 7H3v8h10V7h-1" /></svg>
 )
@@ -63,8 +66,8 @@ export default function Install({ onBack }: { onBack: () => void }) {
       {ios ? (
         <ol className="install-steps">
           <li className="install-step"><span className="install-step__num">1</span>
-            <span>Tap <b>Share</b> <span className="chip"><Share /></span>
-              <span className="install-step__small">Not on Safari's bar? It's inside the <span className="chip"><Dots /></span> menu.</span></span></li>
+            <span>Tap <span className="chip"><Menu /></span> at the left of the address bar, then <b>Share</b> <span className="chip"><Share /></span>
+              <span className="install-step__small">Don't see it? Share is under <span className="chip"><Dots /></span> on some iPhones.</span></span></li>
           <li className="install-step"><span className="install-step__num">2</span>
             <span>Scroll down, tap <span className="chip">Add to Home Screen</span></span></li>
           <li className="install-step"><span className="install-step__num">3</span>

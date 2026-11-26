@@ -38,7 +38,7 @@ export default function Email({ initial, onBack, onSent }: {
     <form className="question" onSubmit={send} noValidate>
       <div className="question__top"><BackButton onClick={onBack} /></div>
       <h1 className="question__title">What's your email?</h1>
-      <p className="question__help">We'll send you a 6-digit code. No password needed.</p>
+      <p className="question__help">We'll email you a short code. No password needed.</p>
 
       <input
         className="field"

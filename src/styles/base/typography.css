@@ -7,14 +7,21 @@
   @font-face { font-family: "Gasoek One"; font-weight: 400; font-display: block; src: url("../../assets/fonts/gasoek-one-latin-400-normal.woff2") format("woff2"); }
 
   html, body, #root { height: 100%; }
+  html, body { overflow: hidden; }
   html { background: var(--char-950); }
 
-  /* The app frame is pinned to all four screen edges. On iPhone home-screen
-     apps, 100% / 100vh can come up short at the bottom; a fixed frame with
-     inset 0 always reaches the real edge, so no blank strip is left. */
+  /* iPhone home-screen apps (iOS 26 and later) lay the page out shorter than
+     the screen by the status-bar height (WebKit bug 301108), which left a
+     blank strip at the bottom. Fixed elements stop at that short edge too.
+     So the page itself is stretched: here in CSS as a fallback, and exactly
+     to the screen height in lib/device.ts (fitHomeScreenApp). */
+  @media (display-mode: standalone) {
+    html { height: min(100lvh, calc(100% + env(safe-area-inset-top))); }
+  }
+
   .app {
-    position: fixed;
-    inset: 0;
+    position: relative;
+    height: 100%;
     overflow: hidden;
     background: var(--bg);
   }

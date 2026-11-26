@@ -41,6 +41,23 @@ export async function promptInstall(): Promise<boolean> {
   return outcome === 'accepted'
 }
 
+/** Home-screen iPhone app, portrait: make the page exactly as tall as the screen.
+ *  With the see-through status bar the app owns the whole screen, so screen.height
+ *  is the true height, whatever the buggy viewport reports. */
+export function fitHomeScreenApp(): void {
+  const fit = () => {
+    const portrait = window.matchMedia('(orientation: portrait)').matches
+    if (isIOS() && isInstalled() && portrait && screen.height > window.innerHeight) {
+      document.documentElement.style.height = `${screen.height}px`
+    } else {
+      document.documentElement.style.removeProperty('height')
+    }
+  }
+  fit()
+  addEventListener('resize', fit)
+  addEventListener('orientationchange', fit)
+}
+
 /** When the on-screen keyboard is open, sets --keyboard-pad to its height so the
  *  screen's button sits just above it. Cleared again when the keyboard closes. */
 export function trackViewportHeight(): void {
@@ -48,10 +65,12 @@ export function trackViewportHeight(): void {
   if (!vv) return
   const root = document.documentElement
   const update = () => {
-    const keyboard = window.innerHeight - vv.height - vv.offsetTop
+    // Measured against the app's real height, not window.innerHeight, which is
+    // short on home-screen iPhones (see fitHomeScreenApp)
+    const appHeight = root.getBoundingClientRect().height
+    const keyboard = appHeight - vv.height - vv.offsetTop
     if (keyboard > 120) {
       root.style.setProperty('--keyboard-pad', `${Math.round(keyboard) + 12}px`)
-      // iPhone nudges the page up when a field is focused; keep it still
       window.scrollTo(0, 0)
     } else {
       root.style.removeProperty('--keyboard-pad')

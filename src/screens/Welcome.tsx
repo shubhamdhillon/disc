@@ -23,7 +23,7 @@ export default function Welcome({ onContinue }: { onContinue: () => void }) {
           {installed ? 'Continue with email' : 'Add Disc to your home screen'}
         </button>
         <p className="welcome__note">
-          {installed ? "We'll send you a 6-digit code. No password." : 'Takes 10 seconds. Then open Disc from there.'}
+          {installed ? "We'll email you a short code. No password." : 'Takes 10 seconds. Then open Disc from there.'}
         </p>
       </div>
     </main>
