@@ -14,7 +14,8 @@ export default function Wheel<T>({ values, value, format, onChange, label }: {
   const start = Math.max(0, values.indexOf(value))
   const [active, setActive] = useState(start)
   const change = useRef(onChange)
-  useEffect(() => { change.current = onChange }, [onChange])
+  const list = useRef(values)
+  useEffect(() => { change.current = onChange; list.current = values })
 
   useLayoutEffect(() => {
     if (el.current) el.current.scrollTop = start * ROW
@@ -28,18 +29,21 @@ export default function Wheel<T>({ values, value, format, onChange, label }: {
     const onScroll = () => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
-        const i = Math.max(0, Math.min(values.length - 1, Math.round(node.scrollTop / ROW)))
+        const vals = list.current
+        const i = Math.max(0, Math.min(vals.length - 1, Math.round(node.scrollTop / ROW)))
         setActive(prev => {
           if (prev !== i) { try { navigator.vibrate?.(8) } catch { /* not supported */ } }
           return i
         })
         clearTimeout(settle)
-        settle = setTimeout(() => change.current(values[i]), 80)
+        settle = setTimeout(() => change.current(vals[i]), 80)
       })
     }
     node.addEventListener('scroll', onScroll, { passive: true })
     return () => { node.removeEventListener('scroll', onScroll); cancelAnimationFrame(frame); clearTimeout(settle) }
-  }, [values])
+    // Subscribed once: callers pass a fresh values array on every render, and
+    // re-subscribing would cancel the pending "settled" call mid-scroll.
+  }, [])
 
   return (
     <div className="wheel">

@@ -28,11 +28,11 @@ export default function PlanReveal({ answers, onBack, onSave }: {
               <span className="plan-card__label">{l.label}</span>
               <span className="plan-card__value">{l.value}</span>
             </div>
-            {l.reason !== 'Your number.' && <p className="plan-card__reason">{l.reason}</p>}
+            {l.reason && <p className="plan-card__reason">{l.reason}</p>}
           </div>
         ))}
       </div>
-      {plan.note && <p className="answer-note">{plan.note}</p>}
+      {plan.notes.map(n => <p key={n} className="answer-note">{n}</p>)}
       <div className="question__footer">
         <button className="button" onClick={onSave}>Save my plan</button>
         <p className="field-note" style={{ textAlign: 'center', marginTop: 12 }}>Just your email, so your plan is safe if you switch phones.</p>

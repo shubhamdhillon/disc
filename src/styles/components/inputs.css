@@ -65,6 +65,17 @@
 
   .sub-label { margin: 26px 0 12px; color: var(--label); font-size: var(--size-14); font-weight: var(--weight-heavy); }
 
+  /* Two-way switch, e.g. cm / feet & inches */
+  .segmented {
+    display: flex; gap: 4px; padding: 4px; margin-bottom: 16px;
+    border-radius: var(--radius-pill); background: var(--surface); border: 2px solid var(--surface-border);
+  }
+  .segmented button {
+    flex: 1; height: 38px; border-radius: var(--radius-pill);
+    color: var(--text-muted); font-size: var(--size-15); font-weight: var(--weight-heavy);
+  }
+  .segmented button[aria-pressed="true"] { background: var(--choice-surface); color: var(--text); box-shadow: inset 0 0 0 2px var(--choice); }
+
   /* Wheels */
   .wheels { display: flex; gap: var(--space-3); }
   .wheel { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }

@@ -4,14 +4,17 @@
 */
 
 export type Path = 'build' | 'own'
-export type Goal = 'lose' | 'muscle' | 'steady' | 'better'
-export type Sex = 'male' | 'female'
+export type Goal = 'lose' | 'recomp' | 'muscle' | 'steady' | 'better'
+export type Sex = 'male' | 'female' | 'unsaid'
 export type Workday = 'sitting' | 'mix' | 'feet'
-export type Movement = 'barely' | 'walks' | 'some' | 'often'
-export type Cook = 'me' | 'family' | 'tiffin' | 'order'
+export type Steps = 'low' | 'some' | 'good' | 'lots'
+export type Workouts = 'none' | 'some' | 'regular' | 'lots'
+export type WorkoutType = 'weights' | 'home' | 'cardio' | 'yoga' | 'sport'
+export type Variety = 'same' | 'rotate' | 'varies'
+export type Cook = 'me' | 'family' | 'tiffin' | 'order' | 'out'
 export type Diet = 'veg' | 'egg' | 'nonveg' | 'vegan'
 export type Container = 'glass' | 'small' | 'sipper' | 'big'
-export type Health = 'pregnant' | 'diabetes' | 'bp' | 'thyroid' | 'none'
+export type Health = 'pregnant' | 'diabetes' | 'bp' | 'thyroid' | 'pcos' | 'kidney' | 'eating' | 'none'
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun'
 
 export interface Answers {
@@ -19,14 +22,18 @@ export interface Answers {
   goal?: Goal
   sex?: Sex
   age: number
-  height: number   // cm
+  height: number   // cm, always stored in cm
+  heightUnit: 'cm' | 'ft'
   weight: number   // kg
   target?: number  // kg
   workday?: Workday
   wake: number     // minutes after midnight
   sleep: number
-  movement?: Movement
+  steps?: Steps
+  workouts?: Workouts
+  workoutTypes: WorkoutType[]
   cooks: Cook[]
+  variety?: Variety
   diet?: Diet
   skips: string[]
   container?: Container
@@ -43,9 +50,11 @@ export interface Answers {
 export const defaultAnswers: Answers = {
   age: 28,
   height: 170,
+  heightUnit: 'cm',
   weight: 70,
   wake: 7 * 60,
   sleep: 23 * 60,
+  workoutTypes: [],
   cooks: [],
   skips: [],
   health: [],
@@ -55,7 +64,7 @@ export const defaultAnswers: Answers = {
   myWater: 8,
 }
 
-const KEY = 'disc.setup'
+const KEY = 'disc.setup.v2'  // v2: questions changed 26 Nov, old saved answers are ignored
 
 export function loadAnswers(): { answers: Answers; step: number } {
   try {
@@ -83,3 +92,8 @@ export const containerName: Record<Container, [string, string]> = {
   sipper: ['sipper', 'sippers'],
   big: ['big bottle', 'big bottles'],
 }
+
+/** BMI from kg and cm. Used only for safety limits, never shown as a judgement. */
+export const bmi = (kg: number, cm: number) => kg / (cm / 100) ** 2
+/** The lowest weight we'll help anyone aim for: BMI 18.5 at their height. */
+export const lowestHealthy = (cm: number) => Math.ceil(18.5 * (cm / 100) ** 2)
