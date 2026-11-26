@@ -139,12 +139,29 @@
     border: 2.5px solid var(--choice);
     background: var(--surface);
   }
-  .stepper__value input {
-    min-width: 1ch; border: 0; background: none; outline: none;
-    color: var(--text); text-align: center;
+  /* Number and its invisible copy share one grid cell; the copy sets the width */
+  .stepper__fit { display: inline-grid; }
+  .stepper__mirror, .stepper__fit input {
+    grid-area: 1 / 1;
     font: inherit; font-size: 26px; font-weight: var(--weight-black);
+    font-variant-numeric: tabular-nums;
+    padding: 0 2px; margin: 0; letter-spacing: 0;
   }
-  .stepper__value span { color: var(--text-muted); font-size: var(--size-15); font-weight: var(--weight-heavy); }
+  .stepper__mirror { visibility: hidden; white-space: pre; }
+  .stepper__fit input {
+    width: 100%; min-width: 1ch; border: 0; border-radius: 0; background: none; outline: none;
+    -webkit-appearance: none; appearance: none;
+    color: var(--text); text-align: center;
+  }
+  .stepper__unit { color: var(--text-muted); font-size: var(--size-15); font-weight: var(--weight-heavy); }
+
+  /* Plan upload */
+  .upload-found { margin-top: 18px; padding: 16px 18px; border-radius: var(--radius-md); border: 2.5px solid var(--choice); background: var(--choice-surface); }
+  .upload-found__title { font-size: var(--size-17); font-weight: var(--weight-black); }
+  .upload-found ul { margin: 8px 0 0; padding-left: 18px; color: var(--text); font-size: var(--size-15); font-weight: var(--weight-bold); line-height: 1.6; }
+  .upload-reading { display: flex; align-items: center; gap: 12px; margin-top: 18px; color: var(--text-muted); font-size: var(--size-15); font-weight: var(--weight-heavy); }
+  .upload-reading i { width: 18px; height: 18px; border-radius: 50%; border: 3px solid var(--surface-border); border-top-color: var(--action); animation: spin 800ms linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Free text */
   .text-box {

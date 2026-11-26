@@ -3,6 +3,7 @@ import BackButton from '../components/BackButton'
 import { Chips, OptionRows, OptionTiles, toggle, type Option } from '../components/inputs/Options'
 import Wheel, { range } from '../components/inputs/Wheel'
 import Stepper from '../components/inputs/Stepper'
+import PlanUpload from '../components/PlanUpload'
 import {
   containerMl, loadAnswers, lowestHealthy, saveAnswers, type Answers, type Container, type Cook, type Diet, type Goal,
   type Health, type Path, type Sex, type Steps, type Variety, type Weekday, type Workday, type WorkoutType, type Workouts,
@@ -88,18 +89,25 @@ const STEPS: Step[] = [
   // ── You ──────────────────────────────────────────────
   {
     id: 'fork', section: 0,
-    title: () => 'Got a plan already?',
+    title: () => 'Already following a diet or fitness plan?',
     ready: a => !!a.path,
     body: (a, set) => (
       <OptionRows<Path>
         options={[
           { value: 'build', label: 'Not yet, make me one' },
-          { value: 'own', label: 'Yes, I have my numbers' },
+          { value: 'own', label: "Yes, I'll add mine" },
         ]}
         selected={one(a.path)}
         onPick={v => set({ path: v })}
       />
     ),
+  },
+  {
+    id: 'my-source', section: 0, when: ownPath,
+    title: () => 'How do you want to add it?',
+    help: () => 'A photo of a diet chart, a screenshot from an app, or a PDF from your dietitian all work.',
+    ready: a => a.planSource === 'type' || (a.planSource === 'upload' && !!a.planFound),
+    body: (a, set) => <PlanUpload a={a} set={set} />,
   },
   {
     id: 'goal', section: 0,
@@ -352,8 +360,8 @@ const STEPS: Step[] = [
   },
   {
     id: 'my-food', section: 2, when: ownPath,
-    title: () => 'Your daily food numbers',
-    help: () => 'Tap the number to type it, or use − and +.',
+    title: a => (a.planSource === 'upload' ? 'Do these look right?' : 'Your daily food numbers'),
+    help: a => (a.planSource === 'upload' ? 'From your plan. Tap a number to change it.' : 'Tap the number to type it, or use − and +.'),
     ready: () => true,
     body: (a, set) => (
       <>
@@ -379,7 +387,7 @@ const STEPS: Step[] = [
     ready: a => !!a.container,
     body: (a, set) => (
       <OptionRows options={containers} selected={one(a.container)}
-        onPick={v => set({ container: v, myWater: Math.max(1, Math.round(2500 / containerMl[v])) })} />
+        onPick={v => set({ container: v, myWater: Math.max(1, Math.round((a.myWaterMl ?? 2500) / containerMl[v])) })} />
     ),
   },
   {

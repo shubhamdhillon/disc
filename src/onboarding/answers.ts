@@ -44,6 +44,9 @@ export interface Answers {
   myProtein: number
   myWorkoutDays?: number
   myWater: number  // containers a day
+  myWaterMl?: number         // from an uploaded plan, turned into containers once we know which
+  planSource?: 'upload' | 'type'
+  planFound?: { summary?: string; estimated: boolean; found: string[] }
   weighIn?: Weekday
 }
 
