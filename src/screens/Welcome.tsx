@@ -1,13 +1,9 @@
 import type { CSSProperties } from 'react'
 import Doodles from '../components/Doodles'
-import { isInstalled } from '../lib/device'
 
 const delay = (ms: number) => ({ '--d': `${ms}ms` } as CSSProperties)
 
-export default function Welcome({ onContinue }: { onContinue: () => void }) {
-  // In a browser tab the account would not carry over to the home-screen app,
-  // so the first step there is installing, not signing in.
-  const installed = isInstalled()
+export default function Welcome({ onStart, onSignIn }: { onStart: () => void; onSignIn: () => void }) {
 
   return (
     <main className="welcome">
@@ -19,12 +15,8 @@ export default function Welcome({ onContinue }: { onContinue: () => void }) {
         <span className="welcome__sub">Food, water and workouts, kept on track around your busy day.</span>
       </p>
       <div className="welcome__footer welcome__in" style={delay(820)}>
-        <button className="button" onClick={onContinue}>
-          {installed ? 'Continue with email' : 'Add Disc to your home screen'}
-        </button>
-        <p className="welcome__note">
-          {installed ? "We'll email you a short code. No password." : 'Takes 10 seconds. Then open Disc from there.'}
-        </p>
+        <button className="button" onClick={onStart}>Start my journey</button>
+        <button className="button button--quiet welcome__second" onClick={onSignIn}>I already have an account</button>
       </div>
     </main>
   )

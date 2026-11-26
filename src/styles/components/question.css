@@ -6,8 +6,8 @@
     overflow-y: auto;
     /* Bottom: just clear of the home bar. When the keyboard is open,
        --keyboard-pad lifts the button to sit right on top of it. */
-    padding: max(62px, calc(env(safe-area-inset-top) + 20px)) 22px
-             var(--keyboard-pad, max(20px, calc(env(safe-area-inset-bottom) + 6px)));
+    --question-bottom: var(--keyboard-pad, max(20px, calc(env(safe-area-inset-bottom) + 6px)));
+    padding: max(62px, calc(env(safe-area-inset-top) + 20px)) 22px 0;
   }
 
   .question__top {
@@ -61,5 +61,12 @@
     line-height: 1.4;
   }
 
-  .question__footer { margin-top: auto; }
+  /* Stays in view at the bottom when a screen is longer than the phone */
+  .question__footer {
+    position: sticky;
+    bottom: 0;
+    margin-top: auto;
+    padding: 24px 0 var(--question-bottom);
+    background: linear-gradient(transparent, var(--bg) 22px);
+  }
 }

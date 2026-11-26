@@ -1,0 +1,19 @@
+/* Plan reveal: one card per target, each with its reason. */
+@layer components {
+  .plan-list { display: flex; flex-direction: column; gap: var(--space-3); }
+  .plan-card {
+    padding: 16px 18px;
+    border-radius: var(--radius-md);
+    border: 2.5px solid var(--surface-border);
+    border-bottom: 6px solid var(--surface-lip);
+    background: var(--surface);
+    animation: plan-in 420ms var(--ease-fill) both;
+    animation-delay: var(--d, 0ms);
+  }
+  .plan-card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .plan-card__label { color: var(--label); font-size: var(--size-14); font-weight: var(--weight-heavy); }
+  .plan-card__value { font-size: var(--size-18); font-weight: var(--weight-black); text-align: right; }
+  .plan-card__reason { margin-top: 6px; color: var(--text-muted); font-size: var(--size-14); font-weight: var(--weight-bold); line-height: 1.45; }
+  @keyframes plan-in { from { opacity: 0; transform: translateY(14px); } }
+  @media (prefers-reduced-motion: reduce) { .plan-card { animation: none; } }
+}
