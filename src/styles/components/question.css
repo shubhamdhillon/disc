@@ -2,11 +2,12 @@
   .question {
     display: flex;
     flex-direction: column;
-    /* Follows the visible area, so the button rides above the keyboard */
-    height: var(--app-height, 100dvh);
+    height: 100%;
     overflow-y: auto;
+    /* Bottom: just clear of the home bar. When the keyboard is open,
+       --keyboard-pad lifts the button to sit right on top of it. */
     padding: max(62px, calc(env(safe-area-inset-top) + 20px)) 22px
-             max(24px, calc(env(safe-area-inset-bottom) + 12px));
+             var(--keyboard-pad, max(20px, calc(env(safe-area-inset-bottom) + 6px)));
   }
 
   .question__top {

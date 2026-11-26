@@ -63,7 +63,8 @@ export default function Install({ onBack }: { onBack: () => void }) {
       {ios ? (
         <ol className="install-steps">
           <li className="install-step"><span className="install-step__num">1</span>
-            <span>Tap <span className="chip"><Dots /></span> then <b>Share</b> <span className="chip"><Share /></span></span></li>
+            <span>Tap <b>Share</b> <span className="chip"><Share /></span>
+              <span className="install-step__small">Not on Safari's bar? It's inside the <span className="chip"><Dots /></span> menu.</span></span></li>
           <li className="install-step"><span className="install-step__num">2</span>
             <span>Scroll down, tap <span className="chip">Add to Home Screen</span></span></li>
           <li className="install-step"><span className="install-step__num">3</span>
@@ -81,9 +82,6 @@ export default function Install({ onBack }: { onBack: () => void }) {
         </ol>
       )}
 
-      {ios && (
-        <svg className="install-arrow" viewBox="0 0 34 46" aria-hidden="true"><path d="M17 4v34M5 27l12 13 12-13" /></svg>
-      )}
     </main>
   )
 }

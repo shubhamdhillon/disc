@@ -7,6 +7,18 @@
   @font-face { font-family: "Gasoek One"; font-weight: 400; font-display: block; src: url("../../assets/fonts/gasoek-one-latin-400-normal.woff2") format("woff2"); }
 
   html, body, #root { height: 100%; }
+  html { background: var(--char-950); }
+
+  /* The app frame is pinned to all four screen edges. On iPhone home-screen
+     apps, 100% / 100vh can come up short at the bottom; a fixed frame with
+     inset 0 always reaches the real edge, so no blank strip is left. */
+  .app {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .app > main, .app > form { height: 100%; overflow-y: auto; }
 
   body {
     font-family: var(--font-sans);

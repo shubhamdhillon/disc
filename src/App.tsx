@@ -35,7 +35,7 @@ export default function App() {
   }
 
   return (
-    <div data-ground="charcoal" style={{ minHeight: '100%' }}>
+    <div className="app" data-ground="charcoal">
       <StickerDefs />
       {screen === 'splash' && <Splash onDone={afterSplash} />}
       {screen === 'welcome' && <Welcome onContinue={fromWelcome} />}

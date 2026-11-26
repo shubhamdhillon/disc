@@ -41,11 +41,23 @@ export async function promptInstall(): Promise<boolean> {
   return outcome === 'accepted'
 }
 
-/** Keeps --app-height equal to the visible area, which shrinks when the keyboard opens. */
+/** When the on-screen keyboard is open, sets --keyboard-pad to its height so the
+ *  screen's button sits just above it. Cleared again when the keyboard closes. */
 export function trackViewportHeight(): void {
   const vv = window.visualViewport
-  const set = () => document.documentElement.style.setProperty('--app-height', `${vv ? vv.height : innerHeight}px`)
-  set()
-  vv?.addEventListener('resize', set)
-  addEventListener('resize', set)
+  if (!vv) return
+  const root = document.documentElement
+  const update = () => {
+    const keyboard = window.innerHeight - vv.height - vv.offsetTop
+    if (keyboard > 120) {
+      root.style.setProperty('--keyboard-pad', `${Math.round(keyboard) + 12}px`)
+      // iPhone nudges the page up when a field is focused; keep it still
+      window.scrollTo(0, 0)
+    } else {
+      root.style.removeProperty('--keyboard-pad')
+    }
+  }
+  update()
+  vv.addEventListener('resize', update)
+  vv.addEventListener('scroll', update)
 }
