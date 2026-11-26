@@ -1,0 +1,83 @@
+/*
+  Layer 1: primitives.
+  Raw values only. Nothing in the app uses these directly;
+  semantic.css gives them meaning. Change a hex here and
+  every place that uses it follows.
+*/
+@layer tokens {
+  :root {
+    /* Lime: the "go forward" colour */
+    --lime-300: #E6F87A;
+    --lime-400: #D9F53D;
+    --lime-600: #A7C319;
+    --lime-900: #1E3300;
+
+    /* Periwinkle: the "your choice" colour */
+    --peri-300: #B3BFFF;
+    --peri-400: #8EA0FF;
+    --peri-600: #5468D8;
+    --peri-800: #262E52;
+    --peri-900: #101018;
+
+    /* Charcoal ground */
+    --char-950: #16171C;
+    --char-900: #1E2027;
+    --char-850: #252731;
+    --char-800: #30333F;
+    --char-lip: #0B0C10;
+
+    /* Forest ground (darker green option) */
+    --forest-950: #0E1912;
+    --forest-900: #142219;
+    --forest-850: #1A2B21;
+    --forest-800: #24392C;
+    --forest-lip: #060D09;
+
+    /* Neutrals for text */
+    --cream-50: #F4F1EA;
+    --grey-400: #A19FAB;
+    --sage-400: #9DB0A3;
+
+    /* Type */
+    --font-sans: "Nunito", system-ui, sans-serif;
+    --font-display: "Anton", "Impact", sans-serif;   /* big headings */
+    --font-logo: "Gasoek One", sans-serif;            /* the Disc logo only */
+    --weight-semibold: 600;
+    --weight-bold: 700;
+    --weight-heavy: 800;
+    --weight-black: 900;
+    --size-12: 0.75rem;
+    --size-14: 0.875rem;
+    --size-15: 0.9375rem;
+    --size-17: 1.0625rem;
+    --size-18: 1.125rem;
+    --size-30: 1.875rem;
+    --size-52: 3.25rem;
+
+    /* Space (4px steps) */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --space-5: 20px;
+    --space-6: 24px;
+    --space-8: 32px;
+
+    /* Corners */
+    --radius-sm: 12px;
+    --radius-md: 18px;
+    --radius-lg: 22px;
+    --radius-pill: 999px;
+
+    /* Depth: how far a pressable thing sits above its edge */
+    --lip-sm: 4px;
+    --lip-md: 6px;
+    --lip-lg: 7px;
+
+    /* Motion */
+    --ease-press: cubic-bezier(0.3, 0.7, 0.4, 1);
+    --ease-fill: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --dur-press: 90ms;
+    --dur-fill: 450ms;
+  }
+}

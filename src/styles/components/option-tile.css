@@ -1,0 +1,59 @@
+@layer components {
+  .option-tile {
+    --tile-bg: var(--surface);
+    --tile-border: var(--surface-border);
+    --tile-lip: var(--surface-lip);
+    --tile-height: 176px;
+    --tile-radius: var(--radius-lg);
+    --tile-depth: var(--lip-lg);
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    height: var(--tile-height);
+    border-radius: var(--tile-radius);
+    border: 2.5px solid var(--tile-border);
+    border-bottom-width: var(--tile-depth);
+    border-bottom-color: var(--tile-lip);
+    background: var(--tile-bg);
+    font-size: var(--size-17);
+    font-weight: var(--weight-heavy);
+    transition: transform var(--dur-press) var(--ease-press);
+  }
+
+  .option-tile:active { transform: translateY(3px); }
+
+  .option-tile[aria-pressed="true"] {
+    --tile-bg: var(--choice-surface);
+    --tile-border: var(--choice);
+    --tile-lip: var(--choice-lip);
+  }
+
+  .option-tile__art { width: 92px; height: 92px; overflow: visible; }
+
+  .option-tile__tick {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: none;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--choice);
+    color: var(--on-choice);
+    font-size: var(--size-14);
+    font-weight: var(--weight-black);
+  }
+
+  .option-tile[aria-pressed="true"] .option-tile__tick { display: grid; }
+
+  .option-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+}

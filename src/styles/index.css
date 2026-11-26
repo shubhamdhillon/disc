@@ -1,0 +1,21 @@
+/*
+  Disc styles: one entry point.
+  Cascade layers fix the order, so a later layer always wins
+  regardless of how specific a selector is:
+  reset → tokens → base → components → utilities
+
+  Tokens:     tokens/primitives.css (raw values) → tokens/semantic.css (what each is for)
+  Components: one file each, every visual setting exposed as a --component-* variable
+*/
+@layer reset, tokens, base, components, utilities;
+
+@import url("./base/reset.css");
+@import url("./tokens/primitives.css");
+@import url("./tokens/semantic.css");
+@import url("./base/typography.css");
+@import url("./components/button.css");
+@import url("./components/progress.css");
+@import url("./components/option-tile.css");
+@import url("./components/question.css");
+@import url("./components/splash.css");
+@import url("./components/welcome.css");

@@ -13,9 +13,9 @@ export default defineConfig({
       manifest: {
         name: 'Disc',
         short_name: 'Disc',
-        description: 'India-first meal tracking',
-        theme_color: '#1C7C2E',
-        background_color: '#1C7C2E',
+        description: 'The fitness app for working professionals',
+        theme_color: '#16171C',
+        background_color: '#16171C',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

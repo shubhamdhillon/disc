@@ -1,0 +1,38 @@
+@layer components {
+  .progress {
+    --progress-fill: var(--action);
+    --progress-track: var(--track);
+    --progress-height: 8px;
+
+    display: flex;
+    flex: 1;
+    gap: 6px;
+  }
+
+  .progress__segment {
+    position: relative;
+    flex: 1;
+    height: var(--progress-height);
+    border-radius: var(--radius-pill);
+    background: var(--progress-track);
+    overflow: hidden;
+  }
+
+  .progress__fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--value, 0%);
+    border-radius: var(--radius-pill);
+    background: var(--progress-fill);
+    transition: width var(--dur-fill) var(--ease-fill);
+  }
+
+  .progress__fill::after {
+    content: "";
+    position: absolute;
+    inset: 2px 5px auto;
+    height: 2px;
+    border-radius: var(--radius-pill);
+    background: rgb(255 255 255 / 0.5);
+  }
+}

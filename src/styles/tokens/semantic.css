@@ -1,0 +1,45 @@
+/*
+  Layer 2: semantic tokens.
+  Names say what a colour is FOR, not what it looks like.
+  Components only read these. Switching the whole app's
+  ground is one attribute: data-ground="charcoal" | "forest".
+*/
+@layer tokens {
+  :root,
+  [data-ground="charcoal"] {
+    --bg: var(--char-950);
+    --surface: var(--char-850);
+    --surface-border: var(--char-800);
+    --surface-lip: var(--char-lip);
+    --track: #2A2C36;
+    --text: var(--cream-50);
+    --text-muted: var(--grey-400);
+  }
+
+  [data-ground="forest"] {
+    --bg: var(--forest-950);
+    --surface: var(--forest-850);
+    --surface-border: var(--forest-800);
+    --surface-lip: var(--forest-lip);
+    --track: #1F3327;
+    --text: var(--cream-50);
+    --text-muted: var(--sage-400);
+  }
+
+  :root {
+    /* Go forward: Continue, progress, done */
+    --action: var(--lime-400);
+    --action-lip: var(--lime-600);
+    --on-action: var(--lime-900);
+
+    /* Your choice: selected answers, ticks, section label */
+    --choice: var(--peri-400);
+    --choice-surface: var(--peri-800);
+    --choice-lip: var(--peri-600);
+    --on-choice: var(--peri-900);
+    --label: var(--peri-300);
+
+    /* Light catching the top of a pressable thing */
+    --sheen: rgb(255 255 255 / 0.42);
+  }
+}

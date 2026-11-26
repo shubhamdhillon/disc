@@ -1,0 +1,46 @@
+/*
+  Pressable button. Each part reads a component token,
+  so one button can be restyled without touching others.
+  Variants only swap tokens.
+*/
+@layer components {
+  .button {
+    --button-bg: var(--action);
+    --button-lip: var(--action-lip);
+    --button-text: var(--on-action);
+    --button-height: 58px;
+    --button-radius: var(--radius-md);
+    --button-depth: var(--lip-md);
+
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: var(--button-height);
+    border-radius: var(--button-radius);
+    background: var(--button-bg);
+    color: var(--button-text);
+    box-shadow: 0 var(--button-depth) 0 var(--button-lip);
+    font-size: var(--size-18);
+    font-weight: var(--weight-heavy);
+    transition: transform var(--dur-press) var(--ease-press),
+                box-shadow var(--dur-press) var(--ease-press);
+  }
+
+  /* The light streak along the top */
+  .button::before {
+    content: "";
+    position: absolute;
+    inset: 6px 16px auto;
+    height: 5px;
+    border-radius: var(--radius-pill);
+    background: var(--sheen);
+  }
+
+  /* Pressed: the face drops onto its edge */
+  .button:active {
+    transform: translateY(var(--button-depth));
+    box-shadow: 0 0 0 var(--button-lip);
+  }
+}
