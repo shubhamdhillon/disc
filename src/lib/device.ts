@@ -12,6 +12,12 @@ export function isIOS(): boolean {
   return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1)
 }
 
+/** iPhone, but in Chrome, Firefox, Edge or an app's built-in browser (Instagram, LinkedIn…).
+ *  Adding to the home screen is only dependable from Safari, so these get sent there. */
+export function isIOSNotSafari(): boolean {
+  return isIOS() && /CriOS|FxiOS|EdgiOS|OPiOS|GSA\/|Instagram|FBAN|FBAV|LinkedInApp|Line\//.test(navigator.userAgent)
+}
+
 /* Chrome and Android offer their own install pop-up. It arrives once,
    early, so it is caught here at load and kept for when the button is tapped. */
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
