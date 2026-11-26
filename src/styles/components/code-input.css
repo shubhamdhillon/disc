@@ -1,0 +1,68 @@
+/* Six-box code entry. One real input sits on top, invisible,
+   so paste and iPhone's "From Mail" suggestion both work. */
+@layer components {
+  .code-input {
+    --code-gap: 9px;
+    --code-height: 62px;
+    --code-radius: 16px;
+
+    position: relative;
+    display: flex;
+    gap: var(--code-gap);
+  }
+  .code-input__real {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    font-size: 16px; /* stops iPhone zooming in */
+    caret-color: transparent;
+  }
+  .code-input__box {
+    flex: 1;
+    height: var(--code-height);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--code-radius);
+    border: 2.5px solid var(--surface-border);
+    border-bottom: 5px solid var(--surface-lip);
+    background: var(--surface);
+    font-size: var(--size-28);
+    font-weight: var(--weight-black);
+  }
+  .code-input__box.is-active {
+    border-color: var(--choice);
+    border-bottom-color: var(--choice-lip);
+  }
+  .code-input__box.is-active::after {
+    content: "";
+    width: 2px;
+    height: 28px;
+    background: var(--choice);
+    animation: code-blink 1s steps(1) infinite;
+  }
+  .code-input.is-wrong .code-input__box {
+    border-color: var(--error);
+    border-bottom-color: var(--error-lip);
+    color: var(--error-ink);
+  }
+  .code-input.is-wrong { animation: code-shake 400ms 1; }
+  .code-input.is-busy { opacity: .6; }
+
+  .code-help {
+    margin-top: 18px;
+    color: var(--text-muted);
+    font-size: var(--size-15);
+    font-weight: var(--weight-bold);
+  }
+  .code-help--error { color: var(--error-text); font-weight: var(--weight-heavy); margin-top: 14px; }
+
+  @keyframes code-blink { 50% { opacity: 0; } }
+  @keyframes code-shake {
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .code-input.is-wrong { animation: none; }
+  }
+}

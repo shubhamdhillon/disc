@@ -2,8 +2,11 @@
   .question {
     display: flex;
     flex-direction: column;
-    min-height: 100%;
-    padding: 62px 22px 40px;
+    /* Follows the visible area, so the button rides above the keyboard */
+    height: var(--app-height, 100dvh);
+    overflow-y: auto;
+    padding: max(62px, calc(env(safe-area-inset-top) + 20px)) 22px
+             max(24px, calc(env(safe-area-inset-bottom) + 12px));
   }
 
   .question__top {
@@ -14,6 +17,8 @@
   }
 
   .back-button {
+    margin-left: -6px;
+    padding: 0;
     display: flex;
     align-items: center;
     width: 22px;

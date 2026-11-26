@@ -21,13 +21,10 @@
 
   .welcome__title {
     margin-top: 22px;
-    font-family: var(--font-display);
-    font-weight: 400;
-    font-size: var(--size-52);
-    line-height: 1.02;
-    letter-spacing: .01em;
+    font-weight: var(--weight-black);
+    font-size: var(--size-40);
+    line-height: 1.1;
     text-align: center;
-    text-transform: uppercase;
   }
 
   .welcome__doodles { position: relative; width: 300px; height: 150px; margin-top: 34px; flex: none; }

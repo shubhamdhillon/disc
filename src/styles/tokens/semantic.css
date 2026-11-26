@@ -39,6 +39,12 @@
     --on-choice: var(--peri-900);
     --label: var(--peri-300);
 
+    /* Something went wrong: wrong code, failed send */
+    --error: var(--coral-400);
+    --error-lip: var(--coral-600);
+    --error-text: var(--coral-300);
+    --error-ink: var(--coral-200);
+
     /* Light catching the top of a pressable thing */
     --sheen: rgb(255 255 255 / 0.42);
   }
