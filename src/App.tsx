@@ -8,7 +8,8 @@ import PlanReveal from './screens/PlanReveal'
 import Email from './screens/Email'
 import Code from './screens/Code'
 import SignedIn from './screens/SignedIn'
-import { canPromptInstall, isInstalled, promptInstall } from './lib/device'
+import { canPromptInstall, isDesktop, isInstalled, promptInstall } from './lib/device'
+import DesktopFrame from './components/DesktopFrame'
 import { supabase } from './lib/supabase'
 import { clearAnswers, loadAnswers, type Answers } from './onboarding/answers'
 import { buildPlan } from './onboarding/plan'
@@ -18,7 +19,8 @@ import { buildPlan } from './onboarding/plan'
   Splash → Welcome
     Start my journey      → setup questions → plan → email → code → saved → home
     I already have one    → email → code → home
-  In a browser tab both buttons go to "add to home screen" first: iPhone keeps
+  On a laptop it runs straight in the browser, inside a phone-sized frame.
+  On a phone's browser tab both buttons go to "add to home screen" first: iPhone keeps
   the home-screen app's data apart from Safari's, so answers given in Safari
   would be lost after installing.
 */
@@ -45,7 +47,7 @@ export default function App() {
   const afterSplash = useCallback(() => setScreen(signedInRef.current ? 'in' : 'welcome'), [])
 
   async function needsInstall(): Promise<boolean> {
-    if (isInstalled()) return false
+    if (isInstalled() || isDesktop()) return false
     if (canPromptInstall()) { await promptInstall(); return true }
     setScreen('install')
     return true
@@ -84,7 +86,7 @@ export default function App() {
     setScreen('email')
   }
 
-  return (
+  const app = (
     <div className="app" data-ground="charcoal">
       <StickerDefs />
       {screen === 'splash' && <Splash onDone={afterSplash} />}
@@ -111,4 +113,5 @@ export default function App() {
       )}
     </div>
   )
+  return isDesktop() ? <DesktopFrame>{app}</DesktopFrame> : app
 }

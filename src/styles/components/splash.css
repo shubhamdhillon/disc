@@ -8,7 +8,7 @@
     --splash-logo: var(--action);
     --splash-tag: var(--label);
 
-    position: fixed;
+    position: absolute;
     inset: 0;
     display: flex;
     flex-direction: column;

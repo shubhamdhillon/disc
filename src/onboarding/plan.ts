@@ -111,13 +111,22 @@ export function buildPlan(a: Answers): Plan {
           : a.workouts === 'some' ? 'One more active day than now. Small step, big difference over a month.'
           : "You're already moving well. This keeps it steady.",
       }
-  const stepsGoal = { low: 5000, some: 7000, good: 9000, lots: 10000 }[a.steps ?? 'low']
-  const walk: PlanLine = {
-    key: 'walk', label: 'Walk', value: `${fmt(stepsGoal)} steps a day`,
-    reason: a.steps === 'lots'
-      ? 'You already walk a lot. Just keep it up. Your phone counts these for you.'
-      : 'A little more than you walk now. Commute and office walks count. Your phone counts these for you.',
-  }
+  // Minutes first: not everyone carries a phone while walking. About 100 steps a minute.
+  const walkPlan = {
+    low: { mins: 25, steps: 5000 },
+    some: { mins: 20, steps: 7000 },
+    good: { mins: 15, steps: 9000 },
+    lots: { mins: 0, steps: 10000 },
+  }[a.steps ?? 'low']
+  const walk: PlanLine = walkPlan.mins
+    ? {
+        key: 'walk', label: 'Walk', value: `${walkPlan.mins} extra minutes a day`,
+        reason: `On top of what you walk now. A brisk walk, the treadmill, or pacing on calls all count. If your phone tracks steps, that's about ${fmt(walkPlan.steps)} in the day.`,
+      }
+    : {
+        key: 'walk', label: 'Walk', value: 'Keep it up',
+        reason: `You already walk a lot, about ${fmt(walkPlan.steps)} steps or more. Just keep doing what you're doing.`,
+      }
 
   // After a hard time with eating, numbers can do harm: no calorie target, no weigh-ins
   const gentle = has(a, 'eating')

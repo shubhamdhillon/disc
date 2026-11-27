@@ -12,6 +12,14 @@ export function isIOS(): boolean {
   return /iPhone|iPad|iPod/.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1)
 }
 
+/** A laptop or desktop: no touch-first pointer, no phone or tablet in the user agent.
+ *  The browser itself is the app there, so nothing needs installing. */
+export function isDesktop(): boolean {
+  const ua = navigator.userAgent
+  if (isIOS() || /Android|Mobi/i.test(ua)) return false
+  return window.matchMedia('(pointer: fine)').matches
+}
+
 /** iPhone, but in Chrome, Firefox, Edge or an app's built-in browser (Instagram, LinkedIn…).
  *  Adding to the home screen is only dependable from Safari, so these get sent there. */
 export function isIOSNotSafari(): boolean {

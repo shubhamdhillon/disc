@@ -1,0 +1,35 @@
+/* Laptop view: the app in a phone-sized frame, with a QR code beside it. */
+@layer components {
+  .desk {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 64px;
+    padding: 24px;
+    background: var(--char-950);
+  }
+  .desk__phone {
+    position: relative;
+    flex: none;
+    width: 393px;
+    height: min(852px, calc(100vh - 48px));
+    border-radius: 48px;
+    overflow: hidden;
+    box-shadow: 0 0 0 10px #0c0d10, 0 0 0 12px #2b2d36, 0 30px 80px rgb(0 0 0 / .55);
+  }
+  .desk__phone .app { position: absolute; inset: 0; }
+  .desk__side { width: 260px; color: var(--text); }
+  .desk__mark {
+    width: 56px; height: 56px; display: grid; place-items: center;
+    font-family: var(--font-logo); font-size: 40px; line-height: 1;
+    color: var(--action); transform: rotate(90deg);
+  }
+  .desk__title { margin-top: 18px; font-size: var(--size-28); font-weight: var(--weight-black); line-height: 1.15; }
+  .desk__text { margin-top: 10px; color: var(--text-muted); font-size: var(--size-15); font-weight: var(--weight-bold); line-height: 1.5; }
+  .desk__qr { margin-top: 22px; border-radius: 16px; display: block; }
+  .desk__link { margin-top: 10px; color: var(--text-muted); font-size: 13px; font-weight: var(--weight-bold); word-break: break-all; }
+  @media (max-width: 760px) { .desk__side { display: none; } }
+  /* On a laptop the page scrolls inside the frame, not the browser window */
+  html:has(.desk), html:has(.desk) body { overflow: hidden; }
+}
