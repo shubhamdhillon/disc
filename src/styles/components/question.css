@@ -18,6 +18,7 @@
   }
 
   .back-button {
+    position: relative;
     margin-left: -6px;
     padding: 0;
     display: flex;
@@ -38,11 +39,13 @@
     border-radius: 2px;
     transform: rotate(45deg);
   }
+  /* 44 x 44 tap area around the 22 px chevron */
+  .back-button::after { content: ""; position: absolute; inset: -11px; }
 
   .question__section {
     margin-bottom: var(--space-2);
     color: var(--label);
-    font-size: var(--size-14);
+    font-size: var(--size-13);
     font-weight: var(--weight-heavy);
   }
 
@@ -50,16 +53,17 @@
     margin-bottom: var(--space-2);
     font-size: var(--size-30);
     font-weight: var(--weight-black);
-    line-height: 1.15;
+    line-height: 1.12;
+    letter-spacing: -0.012em;
   }
 
-  .question__title--alone { margin-bottom: 26px; }
+  .question__title--alone { margin-bottom: var(--space-6); }
 
   .question__help {
-    margin-bottom: 26px;
+    margin-bottom: var(--space-6);
     color: var(--text-muted);
-    font-size: var(--size-15);
-    font-weight: var(--weight-bold);
+    font-size: var(--size-16);
+    font-weight: var(--weight-regular);
     line-height: 1.4;
   }
 

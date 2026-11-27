@@ -4,6 +4,8 @@ import { Chips, OptionRows, OptionTiles, toggle, type Option } from '../componen
 import Wheel, { range } from '../components/inputs/Wheel'
 import Stepper from '../components/inputs/Stepper'
 import PlanUpload from '../components/PlanUpload'
+import BurnCard from '../components/BurnCard'
+import { I } from '../components/icons'
 import {
   containerMl, loadAnswers, lowestHealthy, saveAnswers, type Answers, type Container, type Cook, type Diet, type Goal,
   type Health, type Path, type Sex, type Steps, type Variety, type Weekday, type Workday, type WorkoutType, type Workouts,
@@ -42,17 +44,17 @@ const one = <T extends string>(v: T | undefined) => (v ? [v] : [])
 const feetLabel = (inches: number) => `${Math.floor(inches / 12)}′ ${inches % 12}″`
 
 const goals: Option<Goal>[] = [
-  { value: 'lose', label: 'Lose fat', hint: 'Get lighter, mostly around the middle' },
-  { value: 'recomp', label: 'Lose fat and build muscle', hint: "Look leaner and stronger. Great if you're skinny-fat" },
-  { value: 'muscle', label: 'Build muscle', hint: 'Get bigger and stronger, some weight gain is expected' },
-  { value: 'steady', label: 'Stay fit, stay steady', hint: "Keep what you've got, feel good" },
-  { value: 'better', label: 'Just eat better', hint: 'No weight goal, just healthier habits' },
+  { value: 'lose', label: 'Lose fat', hint: 'Your weight goes down', icon: <I name="flame" /> },
+  { value: 'recomp', label: 'Lose fat and build muscle', hint: 'Weight stays about the same', icon: <I name="butterfly" /> },
+  { value: 'muscle', label: 'Build muscle', hint: 'Your weight goes up a little', icon: <I name="barbell" /> },
+  { value: 'steady', label: 'Stay in shape', hint: 'Your weight holds where it is', icon: <I name="heartbeat" /> },
+  { value: 'better', label: 'Just eat better', hint: 'No weight target', icon: <I name="carrot" /> },
 ]
 const diets: Option<Diet>[] = [
-  { value: 'veg', label: 'Veg' },
-  { value: 'egg', label: 'Veg + eggs' },
-  { value: 'nonveg', label: 'Non-veg' },
-  { value: 'vegan', label: 'Vegan' },
+  { value: 'veg', label: 'Veg', icon: <I name="leaf" /> },
+  { value: 'egg', label: 'Veg + eggs', icon: <I name="egg" /> },
+  { value: 'nonveg', label: 'Non-veg', icon: <I name="fish" /> },
+  { value: 'vegan', label: 'Vegan', icon: <I name="plant" /> },
 ]
 const skipsFor = (d: Diet | undefined): Option<string>[] => [
   { value: 'onion-garlic', label: 'Onion & garlic' },
@@ -64,11 +66,13 @@ const skipsFor = (d: Diet | undefined): Option<string>[] => [
   { value: 'sugar', label: 'Added sugar' },
   { value: 'fried', label: 'Fried food' },
 ]
+// The amount is the picture here: no library has honest bottle icons
+const big = (n: string, unit: string) => <span className="option-tile__big">{n}<small>{unit}</small></span>
 const containers: Option<Container>[] = [
-  { value: 'glass', label: 'A glass', hint: 'about 250 ml' },
-  { value: 'small', label: 'A small bottle', hint: 'about 500 ml' },
-  { value: 'sipper', label: 'A sipper', hint: 'about 750 ml' },
-  { value: 'big', label: 'A big bottle', hint: 'about 1 litre' },
+  { value: 'glass', label: 'A glass', art: big('250', 'ml') },
+  { value: 'small', label: 'A small bottle', art: big('500', 'ml') },
+  { value: 'sipper', label: 'A sipper', art: big('750', 'ml') },
+  { value: 'big', label: 'A big bottle', art: big('1', 'litre') },
 ]
 const days: Option<Weekday>[] = [
   { value: 'mon', label: 'Mon' }, { value: 'tue', label: 'Tue' }, { value: 'wed', label: 'Wed' },
@@ -81,7 +85,7 @@ const healthFor = (a: Answers): Option<Health>[] => [
   { value: 'thyroid', label: 'Thyroid' },
   ...(a.sex === 'male' ? [] : [{ value: 'pcos' as Health, label: 'PCOS or PCOD' }]),
   { value: 'kidney', label: 'Kidney condition' },
-  { value: 'eating', label: 'A hard time with eating before', hint: 'Bingeing, restricting, or food feeling stressful' },
+  { value: 'eating', label: 'A hard time with food, like bingeing or restricting' },
   { value: 'none', label: 'None of these' },
 ]
 
@@ -94,8 +98,8 @@ const STEPS: Step[] = [
     body: (a, set) => (
       <OptionRows<Path>
         options={[
-          { value: 'build', label: 'Not yet, make me one' },
-          { value: 'own', label: "Yes, I'll add mine" },
+          { value: 'build', label: 'Not yet, make me one', icon: <I name="magic-wand" /> },
+          { value: 'own', label: "Yes, I'll add mine", icon: <I name="clipboard-text" /> },
         ]}
         selected={one(a.path)}
         onPick={v => set({ path: v })}
@@ -105,25 +109,28 @@ const STEPS: Step[] = [
   {
     id: 'my-source', section: 0, when: ownPath,
     title: () => 'How do you want to add it?',
-    help: () => 'A photo of a diet chart, a screenshot from an app, or a PDF from your dietitian all work.',
+    help: () => 'A photo or PDF of your plan works.',
     ready: a => a.planSource === 'type' || (a.planSource === 'upload' && !!a.planFound),
     body: (a, set) => <PlanUpload a={a} set={set} />,
   },
   {
     id: 'goal', section: 0,
     title: () => 'What are you working towards?',
-    help: () => 'Pick the one that matters most right now.',
     ready: a => !!a.goal,
     body: (a, set) => <OptionRows options={goals} selected={one(a.goal)} onPick={v => set({ goal: v, target: undefined })} />,
   },
   {
     id: 'sex', section: 0, when: buildPath,
     title: () => "What's your sex?",
-    help: () => 'Only used for the calorie maths. Bodies burn energy a little differently.',
+    help: () => 'Only used for the calorie maths.',
     ready: a => !!a.sex,
     body: (a, set) => (
       <OptionRows<Sex>
-        options={[{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }, { value: 'unsaid', label: "I'd rather not say", hint: "We'll use an in-between estimate" }]}
+        options={[
+          { value: 'male', label: 'Male', icon: <I name="gender-male" /> },
+          { value: 'female', label: 'Female', icon: <I name="gender-female" /> },
+          { value: 'unsaid', label: "I'd rather not say", icon: <I name="user-circle" /> },
+        ]}
         selected={one(a.sex)}
         onPick={v => set({ sex: v, weight: a.weight === 70 || a.weight === 60 ? (v === 'female' ? 60 : 70) : a.weight, health: a.health.filter(h => v !== 'male' || (h !== 'pregnant' && h !== 'pcos')) })}
       />
@@ -132,7 +139,6 @@ const STEPS: Step[] = [
   {
     id: 'age', section: 0, when: buildPath,
     title: () => 'How old are you?',
-    help: () => 'Disc is made for adults, so it starts at 18.',
     ready: () => true,
     body: (a, set) => (
       <div className="wheels">
@@ -143,7 +149,7 @@ const STEPS: Step[] = [
   {
     id: 'body', section: 0, when: buildPath,
     title: () => 'Your height and weight',
-    help: () => "Roughly is fine. We'll get exact at the first weekly check-in.",
+    help: () => 'Roughly is fine.',
     ready: () => true,
     body: (a, set) => (
       <>
@@ -160,20 +166,20 @@ const STEPS: Step[] = [
             : <Wheel key="cm" label="Height" values={range(140, 210)} value={a.height} format={v => `${v} cm`} onChange={v => set({ height: v })} />}
           <Wheel label="Weight" values={range(35, 180)} value={a.weight} format={v => `${v} kg`} onChange={v => set({ weight: v })} />
         </div>
+        <BurnCard a={a} step="body" />
       </>
     ),
   },
   {
     id: 'target', section: 0, when: a => buildPath(a) && (a.goal === 'lose' || a.goal === 'muscle'),
     title: a => (a.goal === 'lose' ? (canLose(a) ? 'Where would you like to get to?' : 'Quick thing before we go on') : 'What weight are you aiming for?'),
-    help: a => (a.goal === 'lose' && !canLose(a) ? undefined : 'A rough target is fine. It just helps us pace things.'),
     ready: () => true,
     body: (a, set) => {
       if (a.goal === 'lose' && !canLose(a)) {
         return (
           <div className="answer-note answer-note--warn">
-            <p>You're already on the lighter side for your height, so losing more isn't something we'd help with.</p>
-            <p style={{ marginTop: 8 }}>If you want to look leaner, <b>losing fat while building muscle</b> is the better route.</p>
+            <p>You're already light for your height, so we won't help you lose more.</p>
+            <p style={{ marginTop: 8 }}>To look leaner, <b>losing fat while building muscle</b> works better.</p>
             <button type="button" className="chip-option" style={{ marginTop: 12 }} onClick={() => set({ goal: 'recomp', target: undefined })}>
               Switch to that goal
             </button>
@@ -190,7 +196,7 @@ const STEPS: Step[] = [
           </div>
           {w && (
             <p className="answer-note">
-              At a pace you can keep, that's about <b>{w[0]} to {w[1]} weeks</b>. Slower is fine. Steady beats fast.
+              At a pace you can keep, that's about <b>{w[0]} to {w[1]} weeks</b>.
             </p>
           )}
           {a.goal === 'lose' && <p className="field-note">We stop at a healthy weight for your height, so the list ends at {values[0]} kg.</p>}
@@ -216,21 +222,24 @@ const STEPS: Step[] = [
     title: () => 'What does a usual workday look like?',
     ready: a => !!a.workday,
     body: (a, set) => (
+      <>
       <OptionRows<Workday>
         options={[
-          { value: 'sitting', label: 'Mostly sitting', hint: 'Desk, calls, screens' },
-          { value: 'mix', label: 'A mix', hint: 'Some sitting, some moving around' },
-          { value: 'feet', label: 'On my feet', hint: 'Walking, standing, site visits' },
+          { value: 'sitting', label: 'Mostly sitting', icon: <I name="office-chair" /> },
+          { value: 'mix', label: 'A mix', icon: <I name="person-simple-walk" /> },
+          { value: 'feet', label: 'On my feet', icon: <I name="footprints" /> },
         ]}
         selected={one(a.workday)}
         onPick={v => set({ workday: v })}
       />
+      <BurnCard a={a} step="workday" />
+      </>
     ),
   },
   {
     id: 'times', section: 1, when: buildPath,
     title: () => 'When does your day start and end?',
-    help: () => "On a usual workday. Night shifts work too. We'll time things around it.",
+    help: () => 'Night shifts work too.',
     ready: () => true,
     body: (a, set) => (
       <div className="wheels">
@@ -242,48 +251,51 @@ const STEPS: Step[] = [
   {
     id: 'steps', section: 1, when: buildPath,
     title: () => 'How much do you walk on a usual day?',
-    help: () => "Commute, office, errands, all of it. Your phone's health app shows your steps if you're not sure.",
+    help: () => "Not sure? Your phone's Health app has it.",
     ready: a => !!a.steps,
     body: (a, set) => (
-      <OptionRows<Steps>
-        options={[
-          { value: 'low', label: 'Not much', hint: 'Under 3,000 steps. Car or cab, desk, home' },
-          { value: 'some', label: 'A bit', hint: '3,000 to 7,000 steps' },
-          { value: 'good', label: 'Quite a lot', hint: '7,000 to 10,000 steps. Metro, walks' },
-          { value: 'lots', label: 'Loads', hint: 'Over 10,000 steps' },
-        ]}
-        selected={one(a.steps)}
-        onPick={v => set({ steps: v })}
-      />
+      <>
+        <OptionRows<Steps>
+          options={[
+            { value: 'low', label: 'Not much', hint: 'Under 3,000 steps', icon: <I name="car-simple" /> },
+            { value: 'some', label: 'A bit', hint: '3,000 to 7,000 steps', icon: <I name="person-simple-walk" /> },
+            { value: 'good', label: 'Quite a lot', hint: '7,000 to 10,000 steps', icon: <I name="train-simple" /> },
+            { value: 'lots', label: 'Loads', hint: 'Over 10,000 steps', icon: <I name="sneaker-move" /> },
+          ]}
+          selected={one(a.steps)}
+          onPick={v => set({ steps: v })}
+        />
+        <BurnCard a={a} step="steps" />
+      </>
     ),
   },
   {
     id: 'workouts', section: 1, when: buildPath,
-    title: () => 'And workouts, these days?',
-    help: () => "Be honest, there's no wrong answer here.",
+    title: () => 'How often do you work out?',
     ready: a => !!a.workouts && (a.workouts === 'none' || a.workoutTypes.length > 0),
     body: (a, set) => (
       <>
         <OptionRows<Workouts>
           options={[
-            { value: 'none', label: 'Not right now' },
-            { value: 'some', label: 'Once or twice a week' },
-            { value: 'regular', label: 'Three or four times a week' },
-            { value: 'lots', label: 'Five or more times a week' },
+            { value: 'none', label: 'Not right now', icon: <I name="battery-empty" /> },
+            { value: 'some', label: 'Once or twice a week', icon: <I name="battery-low" /> },
+            { value: 'regular', label: 'Three or four times a week', icon: <I name="battery-medium" /> },
+            { value: 'lots', label: 'Five or more times a week', icon: <I name="battery-full" /> },
           ]}
           selected={one(a.workouts)}
           onPick={v => set({ workouts: v, workoutTypes: v === 'none' ? [] : a.workoutTypes })}
         />
+        <BurnCard a={a} step="workouts" />
         {a.workouts && a.workouts !== 'none' && (
           <>
-            <p className="sub-label">What kind? Pick all that apply</p>
+            <p className="sub-label">What kind? Pick any</p>
             <Chips<WorkoutType>
               options={[
-                { value: 'weights', label: 'Gym, weights' },
-                { value: 'home', label: 'Home workouts' },
-                { value: 'cardio', label: 'Running, cycling' },
-                { value: 'yoga', label: 'Yoga' },
-                { value: 'sport', label: 'A sport' },
+                { value: 'weights', label: 'Gym, weights', icon: <I name="barbell" /> },
+                { value: 'home', label: 'Home workouts', icon: <I name="house-line" /> },
+                { value: 'cardio', label: 'Running, cycling', icon: <I name="person-simple-run" /> },
+                { value: 'yoga', label: 'Yoga', icon: <I name="person-simple-tai-chi" /> },
+                { value: 'sport', label: 'A sport', icon: <I name="soccer-ball" /> },
               ]}
               selected={a.workoutTypes}
               onPick={v => set({ workoutTypes: toggle(a.workoutTypes, v) })}
@@ -310,17 +322,17 @@ const STEPS: Step[] = [
   {
     id: 'cooks', section: 2, when: buildPath,
     title: () => 'Where does most of your food come from?',
-    help: () => 'Pick all that apply.',
     ready: a => a.cooks.length > 0,
     body: (a, set) => (
       <OptionRows<Cook>
         options={[
-          { value: 'me', label: 'I cook' },
-          { value: 'family', label: 'Family or a cook makes it' },
-          { value: 'tiffin', label: 'Tiffin, mess or office canteen' },
-          { value: 'order', label: 'I order in' },
-          { value: 'out', label: 'I eat out' },
+          { value: 'me', label: 'I cook', icon: <I name="cooking-pot" /> },
+          { value: 'family', label: 'Family or a cook makes it', icon: <I name="users-three" /> },
+          { value: 'tiffin', label: 'Tiffin, mess or office canteen', icon: <I name="bowl-food" /> },
+          { value: 'order', label: 'I order in', icon: <I name="moped" /> },
+          { value: 'out', label: 'I eat out', icon: <I name="fork-knife" /> },
         ]}
+        multi
         selected={a.cooks}
         onPick={v => set({ cooks: toggle(a.cooks, v) })}
       />
@@ -328,15 +340,14 @@ const STEPS: Step[] = [
   },
   {
     id: 'variety', section: 2, when: buildPath,
-    title: () => 'How much does your food change day to day?',
-    help: () => 'So your usual meals can be logged in one tap.',
+    title: () => 'Same food most days?',
     ready: a => !!a.variety,
     body: (a, set) => (
       <OptionRows<Variety>
         options={[
-          { value: 'same', label: 'Pretty much the same every day', hint: 'Same breakfast, same tiffin' },
-          { value: 'rotate', label: 'A few meals on rotation', hint: 'The same handful, mixed up' },
-          { value: 'varies', label: 'Changes a lot', hint: "Whatever's cooked, ordered or around" },
+          { value: 'same', label: 'Pretty much the same every day', icon: <I name="repeat" /> },
+          { value: 'rotate', label: 'A few meals on rotation', icon: <I name="arrows-clockwise" /> },
+          { value: 'varies', label: 'It changes a lot', icon: <I name="shuffle" /> },
         ]}
         selected={one(a.variety)}
         onPick={v => set({ variety: v })}
@@ -353,7 +364,7 @@ const STEPS: Step[] = [
           <OptionTiles options={diets} selected={one(a.diet)}
             onPick={v => set({ diet: v, skips: a.skips.filter(x => skipsFor(v).some(o => o.value === x)) })} />
         </div>
-        <p className="sub-label">Anything you avoid or can't have? (optional)</p>
+        <p className="sub-label">Anything you avoid? (optional)</p>
         <Chips options={skipsFor(a.diet)} selected={a.skips} onPick={v => set({ skips: toggle(a.skips, v) })} />
       </>
     ),
@@ -383,10 +394,9 @@ const STEPS: Step[] = [
   {
     id: 'water', section: 2,
     title: () => 'What do you usually drink water from?',
-    help: () => 'So logging water is one tap, counted in what you actually use.',
     ready: a => !!a.container,
     body: (a, set) => (
-      <OptionRows options={containers} selected={one(a.container)}
+      <OptionTiles options={containers} selected={one(a.container)}
         onPick={v => set({ container: v, myWater: Math.max(1, Math.round((a.myWaterMl ?? 2500) / containerMl[v])) })} />
     ),
   },
@@ -401,40 +411,41 @@ const STEPS: Step[] = [
   {
     id: 'weigh-in', section: 3, when: ownPath,
     title: () => 'Which day should we weigh in?',
-    help: () => 'Once a week, same day, before breakfast.',
+    help: () => 'Once a week, before breakfast.',
     ready: a => !!a.weighIn,
     body: (a, set) => <Chips options={days} selected={one(a.weighIn)} onPick={v => set({ weighIn: v })} />,
   },
   {
     id: 'health', section: 3,
     title: () => 'Anything we should be careful about?',
-    help: () => 'Pick all that apply. It keeps your plan safe. Only you and Disc see this.',
+    help: () => 'This keeps your plan safe.',
     ready: a => a.health.length > 0,
     body: (a, set) => (
       <>
         <OptionRows<Health>
           options={healthFor(a)}
+          multi
           selected={a.health}
           onPick={v => set({ health: toggle(a.health, v, ['none']) })}
         />
         {a.health.includes('eating') && (
-          <p className="answer-note">Thank you for telling us. We won't put you on a calorie cut, and we'll keep things about regular, good meals.</p>
+          <p className="answer-note">Thanks for telling us. No calorie cut, just regular, good meals.</p>
         )}
         {a.health.some(h => h !== 'none' && h !== 'eating') && (
-          <p className="answer-note">Thanks for telling us. We'll keep things gentle, and anything medical goes to your doctor first.</p>
+          <p className="answer-note">Thanks for telling us. We'll keep things gentle. Check anything medical with your doctor.</p>
         )}
       </>
     ),
   },
   {
     id: 'notes', section: 3, optional: true, when: buildPath,
-    title: () => 'Anything else I should know?',
-    help: () => "Injuries, medicines, night shifts, foods you love. We'll keep it in mind when we suggest things.",
+    title: () => 'Anything else we should know?',
+    help: () => 'Injuries, medicines or foods you love.',
     ready: () => true,
     body: (a, set) => (
       <textarea
         className="text-box"
-        placeholder="e.g. Bad knee, so no running. I travel every other week, and I can't skip my evening chai"
+        placeholder="e.g. Bad knee, so no running"
         value={a.notes}
         onChange={e => set({ notes: e.target.value })}
         maxLength={500}

@@ -12,7 +12,7 @@ export default function SignedIn({ email, onSignOut, onSetUp }: { email: string;
   return (
     <main className="question">
       <div className="question__top" />
-      <h1 className="question__title">You're in 🎉</h1>
+      <h1 className="question__title">You're in</h1>
       <p className="question__help">Signed in as <b style={{ color: 'var(--text)' }}>{email}</b>. The home screen is next on our list.</p>
       {plan && (
         <p className="answer-note">

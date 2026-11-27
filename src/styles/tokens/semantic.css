@@ -33,6 +33,18 @@
     --on-action: var(--lime-900);
 
     /* Your choice: selected answers, ticks, section label */
+    /* Setup answers: a key you press. Face one step above the ground,
+       rim and bottom edge in the border grey so the 3D actually shows. */
+    --key-face: var(--char-900);
+    --key-edge: var(--char-800);
+    /* Answer icons: one soft colour, so dark screens stay calm */
+    --icon: var(--peri-300);
+    --icon-tile: rgb(142 160 255 / 0.12);
+    --icon-tile-on: rgb(142 160 255 / 0.22);
+    /* Live numbers that react to answers */
+    --live: var(--lime-400);
+    --live-tint: rgb(217 245 61 / 0.12);
+    --rule: var(--char-850);
     --choice: var(--peri-400);
     --choice-surface: var(--peri-800);
     --choice-lip: var(--peri-600);

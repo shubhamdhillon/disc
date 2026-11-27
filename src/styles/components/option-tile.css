@@ -1,11 +1,11 @@
 @layer components {
   .option-tile {
-    --tile-bg: var(--surface);
-    --tile-border: var(--surface-border);
-    --tile-lip: var(--surface-lip);
+    --tile-bg: var(--key-face);
+    --tile-border: var(--key-edge);
+    --tile-lip: var(--key-edge);
     --tile-height: 176px;
     --tile-radius: var(--radius-lg);
-    --tile-depth: var(--lip-lg);
+    --tile-depth: var(--lip-sm);
 
     position: relative;
     display: flex;
@@ -15,16 +15,16 @@
     gap: var(--space-3);
     height: var(--tile-height);
     border-radius: var(--tile-radius);
-    border: 2.5px solid var(--tile-border);
+    border: 2px solid var(--tile-border);
     border-bottom-width: var(--tile-depth);
     border-bottom-color: var(--tile-lip);
     background: var(--tile-bg);
-    font-size: var(--size-17);
-    font-weight: var(--weight-heavy);
+    font-size: var(--size-18);
+    font-weight: var(--weight-bold);
     transition: transform var(--dur-press) var(--ease-press);
   }
 
-  .option-tile:active { transform: translateY(3px); }
+  .option-tile:active { transform: translateY(2px); }
 
   .option-tile[aria-pressed="true"] {
     --tile-bg: var(--choice-surface);
@@ -32,7 +32,16 @@
     --tile-lip: var(--choice-lip);
   }
 
-  .option-tile__art { width: 92px; height: 92px; overflow: visible; }
+  .option-tile__art {
+    display: grid; place-items: center;
+    width: 52px; height: 52px; border-radius: 14px;
+    background: var(--icon-tile); color: var(--icon);
+  }
+  .option-tile__art svg { width: 30px; height: 30px; }
+  .option-tile[aria-pressed="true"] .option-tile__art { background: var(--icon-tile-on); }
+  /* When the answer is a number (water: 250 ml), the number is the picture */
+  .option-tile__big { font-size: var(--size-30); font-weight: var(--weight-black); letter-spacing: -0.015em; line-height: 1; }
+  .option-tile__big small { margin-left: 3px; color: var(--text-muted); font-size: var(--size-16); font-weight: var(--weight-regular); letter-spacing: 0; }
 
   .option-tile__tick {
     position: absolute;
@@ -48,6 +57,7 @@
     font-size: var(--size-14);
     font-weight: var(--weight-black);
   }
+  .option-tile__tick svg { width: 14px; height: 14px; }
 
   .option-tile[aria-pressed="true"] .option-tile__tick { display: grid; }
 

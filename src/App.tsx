@@ -11,7 +11,7 @@ import SignedIn from './screens/SignedIn'
 import { canPromptInstall, isDesktop, isInstalled, promptInstall } from './lib/device'
 import DesktopFrame from './components/DesktopFrame'
 import { supabase } from './lib/supabase'
-import { clearAnswers, loadAnswers, type Answers } from './onboarding/answers'
+import { clearAnswers, loadAnswers, saveAnswers, type Answers } from './onboarding/answers'
 import { buildPlan } from './onboarding/plan'
 
 /*
@@ -96,7 +96,7 @@ export default function App() {
         <Onboarding onExit={() => setScreen('welcome')} onDone={a => { setAnswers(a); setScreen('plan') }} />
       )}
       {screen === 'plan' && (
-        <PlanReveal answers={answers} onBack={() => setScreen('setup')} onSave={onSave} />
+        <PlanReveal answers={answers} onBack={() => setScreen('setup')} onEdit={() => { saveAnswers(answers, 0); setScreen('setup') }} onSave={onSave} />
       )}
       {screen === 'email' && (
         <Email initial={email} mode={mode}

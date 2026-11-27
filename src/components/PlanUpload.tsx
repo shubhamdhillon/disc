@@ -60,7 +60,7 @@ export default function PlanUpload({ a, set }: { a: Answers; set: (p: Partial<An
       {state === 'error' && <p className="answer-note answer-note--warn" role="alert">{error}</p>}
       {state === 'idle' && a.planSource === 'upload' && a.planFound && (
         <div className="upload-found">
-          <p className="upload-found__title">Here's what we found</p>
+          <p className="upload-found__title">Found in your plan</p>
           {a.planFound.summary && <p className="field-note" style={{ paddingLeft: 0 }}>{a.planFound.summary}</p>}
           <ul>{a.planFound.found.map(f => <li key={f}>{f}</li>)}</ul>
           <p className="field-note" style={{ paddingLeft: 0, marginTop: 10 }}>
