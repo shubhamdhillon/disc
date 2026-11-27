@@ -28,12 +28,16 @@
     --purple-700: #4A33C7;
     --purple-950: #24223A;
 
-    /* Answer icons: five warm and cool colours, used in order */
+    /* Answer icons: five colours used in order, plus true colours for real things */
     --hue-coral: #FF9473;
     --hue-lavender: #B7A6FF;
     --hue-sky: #7CC8FF;
     --hue-pink: #FF85AB;
     --hue-amber: #FFC062;
+    /* For things with a colour of their own */
+    --hue-orange: #FF8A2B;
+    --hue-green: #6FD67E;
+    --hue-mint: #4FD1B0;
 
     /* Coral: something went wrong */
     --coral-200: #FFB3AA;

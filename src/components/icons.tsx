@@ -84,8 +84,23 @@ export type IconName = keyof typeof svgs
 
 const inner = (raw: string) => raw.replace(/^<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
 
+/** Icons that show a real thing wear that thing's colour, the same on every
+    screen (a leaf is green, a carrot is orange, a full battery is green).
+    Icons with no colour of their own follow the list order set in CSS. */
+const tone: Partial<Record<IconName, string>> = {
+  'flame': 'coral', 'person-simple-run': 'coral', 'bowl-food': 'coral', 'fish': 'coral', 'battery-empty': 'coral',
+  'carrot': 'orange',
+  'egg': 'amber', 'magic-wand': 'amber', 'battery-low': 'amber', 'calendar-check': 'amber',
+  'leaf': 'green', 'battery-medium': 'green', 'battery-full': 'green', 'soccer-ball': 'green',
+  'plant': 'mint',
+  'drop': 'sky', 'barbell': 'sky', 'gender-male': 'sky', 'cooking-pot': 'sky',
+  'heartbeat': 'pink', 'gender-female': 'pink',
+  'butterfly': 'lavender', 'person-simple-walk': 'lavender', 'user-circle': 'lavender',
+}
+
 export function I({ name }: { name: IconName }) {
-  return <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" dangerouslySetInnerHTML={{ __html: inner(svgs[name]) }} />
+  const t = tone[name]
+  return <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" style={t ? { color: `var(--hue-${t})` } : undefined} dangerouslySetInnerHTML={{ __html: inner(svgs[name]) }} />
 }
 
 /** The tick used on chosen answers. */
