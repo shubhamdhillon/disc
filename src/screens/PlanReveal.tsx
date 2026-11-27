@@ -76,7 +76,7 @@ export default function PlanReveal({ answers, onBack, onEdit, onSave }: {
 function Row({ line, open, onToggle, delay }: { line: PlanLine; open: boolean; onToggle: () => void; delay: number }) {
   const icon: IconName = line.key === 'move' ? (line.label === 'Strength' ? 'barbell' : 'person-simple-run') : icons[line.key]
   return (
-    <li className="plan-row" data-open={open} style={{ '--d': `${delay}ms` } as CSSProperties}>
+    <li className="plan-row" data-key={line.key} data-open={open} style={{ '--d': `${delay}ms` } as CSSProperties}>
       <button className="plan-row__button" onClick={onToggle} disabled={!line.reason} aria-expanded={open}>
         <span className="plan-row__icon"><I name={icon} /></span>
         <span className="plan-row__label">{line.label}</span>

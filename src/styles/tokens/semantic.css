@@ -27,37 +27,48 @@
   }
 
   :root {
-    /* Go forward: Continue, progress, done */
-    --action: var(--lime-400);
-    --action-lip: var(--lime-600);
-    --on-action: var(--lime-900);
+    /* The Disc logo keeps its lime */
+    --brand: var(--lime-400);
 
-    /* Your choice: selected answers, ticks, section label */
-    /* Setup answers: a key you press. Face one step above the ground,
-       rim and bottom edge in the border grey so the 3D actually shows. */
-    --key-face: var(--char-900);
+    /* Go forward: Continue, progress, done.
+       Lit from above: a lighter top, a thin bright top edge, a darker edge below. */
+    --action: var(--purple-400);
+    --action-low: var(--purple-500);
+    --action-lip: var(--purple-700);
+    --on-action: #fff;
+    --action-edge: rgb(255 255 255 / 0.38);
+
+    /* Setup answers: quiet cards. One step above the ground,
+       no rim, no edge, so a list of five stays calm. */
+    --key-face: #1D1E24;
     --key-edge: var(--char-800);
-    /* Answer icons: one soft colour, so dark screens stay calm */
-    --icon: var(--peri-300);
-    --icon-tile: rgb(142 160 255 / 0.12);
-    --icon-tile-on: rgb(142 160 255 / 0.22);
-    /* Live numbers that react to answers */
-    --live: var(--lime-400);
-    --live-tint: rgb(217 245 61 / 0.12);
+    --hint: var(--grey-500);
     --rule: var(--char-850);
-    --choice: var(--peri-400);
-    --choice-surface: var(--peri-800);
-    --choice-lip: var(--peri-600);
-    --on-choice: var(--peri-900);
-    --label: var(--peri-300);
+
+    /* Your choice: a purple outline and a faint purple fill */
+    --choice: var(--purple-350);
+    --choice-surface: var(--purple-950);
+    --choice-lip: var(--purple-700);
+    --choice-fill: var(--purple-400);
+    --on-choice: #fff;
+    --label: var(--purple-300);
+
+    /* Answer icons, one colour each, in this order */
+    --icon-1: var(--hue-coral);
+    --icon-2: var(--hue-lavender);
+    --icon-3: var(--hue-sky);
+    --icon-4: var(--hue-pink);
+    --icon-5: var(--hue-amber);
+    --icon: var(--icon-2);
+
+    /* Live numbers that react to answers */
+    --live: var(--purple-200);
+    --live-tint: rgb(183 166 255 / 0.14);
 
     /* Something went wrong: wrong code, failed send */
     --error: var(--coral-400);
     --error-lip: var(--coral-600);
     --error-text: var(--coral-300);
     --error-ink: var(--coral-200);
-
-    /* Light catching the top of a pressable thing */
-    --sheen: rgb(255 255 255 / 0.42);
   }
 }

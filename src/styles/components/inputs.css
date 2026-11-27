@@ -1,48 +1,45 @@
 /* Answer inputs for setup: rows, chips, wheels, steppers, text box.
    Tiles live in option-tile.css. Every look reads a --component token. */
 @layer components {
-  /* Rows: answers are keys you press. Icon on the left, tick only on the
-     chosen one; multi-choice rows show an empty box instead. */
-  .option-rows { display: flex; flex-direction: column; gap: var(--space-3); }
+  /* Rows: quiet cards. No rim and no edge, so a list of five stays calm.
+     Each answer's icon has its own colour, in order; the chosen card gets
+     a purple outline and tick. Pick-several lists show an empty box. */
+  .option-rows { display: flex; flex-direction: column; gap: 10px; }
   .option-row {
     --row-bg: var(--key-face);
-    --row-border: var(--key-edge);
-    --row-lip: var(--key-edge);
+    --row-ring: transparent;
 
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 16px;
     width: 100%;
-    min-height: 64px;
-    padding: 12px 16px 12px 18px;
+    min-height: 68px;
+    padding: 14px 18px;
     border-radius: var(--radius-md);
-    border: 2px solid var(--row-border);
-    border-bottom: var(--lip-sm) solid var(--row-lip);
     background: var(--row-bg);
+    box-shadow: inset 0 0 0 2px var(--row-ring);
     text-align: left;
-    transition: transform var(--dur-press) var(--ease-press);
+    transition: transform var(--dur-press) var(--ease-press), background 120ms;
   }
-  .option-row:has(.option-row__icon) { min-height: 72px; padding-left: 12px; }
-  .option-row:active { transform: translateY(2px); }
-  .option-row[aria-pressed="true"] {
-    --row-bg: var(--choice-surface);
-    --row-border: var(--choice);
-    --row-lip: var(--choice-lip);
-  }
-  .option-row__icon {
-    flex: none; display: grid; place-items: center;
-    width: 44px; height: 44px; border-radius: var(--radius-sm);
-    background: var(--icon-tile); color: var(--icon);
-  }
-  .option-row__icon svg { width: 26px; height: 26px; }
-  .option-row[aria-pressed="true"] .option-row__icon { background: var(--icon-tile-on); }
+  .option-row:active { transform: scale(.985); }
+  .option-row[aria-pressed="true"] { --row-bg: var(--choice-surface); --row-ring: var(--choice); }
+
+  /* Five icon colours, used in order down any list */
+  .option-row:nth-child(5n+1), .option-tile:nth-child(5n+1), .chip-option:nth-child(5n+1) { --icon: var(--icon-1); }
+  .option-row:nth-child(5n+2), .option-tile:nth-child(5n+2), .chip-option:nth-child(5n+2) { --icon: var(--icon-2); }
+  .option-row:nth-child(5n+3), .option-tile:nth-child(5n+3), .chip-option:nth-child(5n+3) { --icon: var(--icon-3); }
+  .option-row:nth-child(5n+4), .option-tile:nth-child(5n+4), .chip-option:nth-child(5n+4) { --icon: var(--icon-4); }
+  .option-row:nth-child(5n+5), .option-tile:nth-child(5n+5), .chip-option:nth-child(5n+5) { --icon: var(--icon-5); }
+
+  .option-row__icon { flex: none; display: grid; place-items: center; width: 28px; height: 28px; color: var(--icon); }
+  .option-row__icon svg { width: 28px; height: 28px; }
   .option-row__text { flex: 1; display: flex; flex-direction: column; gap: 1px; }
   .option-row__label { font-size: var(--size-18); font-weight: var(--weight-bold); line-height: 1.25; }
-  .option-row__hint { color: var(--text-muted); font-size: var(--size-16); font-weight: var(--weight-regular); line-height: 1.3; }
+  .option-row__hint { color: var(--hint); font-size: var(--size-15); font-weight: var(--weight-regular); line-height: 1.3; }
   .option-row__tick {
     display: none; place-items: center; flex: none;
     width: 26px; height: 26px; border-radius: 50%;
-    background: var(--choice); color: var(--on-choice);
+    background: var(--choice-fill); color: var(--on-choice);
   }
   .option-row__tick svg { width: 14px; height: 14px; }
   .option-row[aria-pressed="true"] .option-row__tick { display: grid; }
@@ -53,35 +50,34 @@
     border: 2px solid var(--key-edge); color: transparent;
   }
   .option-row__box svg { width: 14px; height: 14px; }
-  .option-row[aria-pressed="true"] .option-row__box { border-color: var(--choice); background: var(--choice); color: var(--on-choice); }
+  .option-row[aria-pressed="true"] .option-row__box { border-color: var(--choice-fill); background: var(--choice-fill); color: var(--on-choice); }
 
   /* Tile extras (tile itself in option-tile.css) */
   .option-tile__label { text-align: center; line-height: 1.2; padding: 0 8px; }
-  .option-tile__hint { margin-top: -6px; color: var(--text-muted); font-size: var(--size-13); font-weight: var(--weight-regular); text-align: center; padding: 0 8px; }
+  .option-tile__hint { margin-top: -6px; color: var(--hint); font-size: var(--size-13); font-weight: var(--weight-regular); text-align: center; padding: 0 8px; }
   .option-grid--short .option-tile { --tile-height: 118px; }
 
   /* Chips */
   .chips { display: flex; flex-wrap: wrap; gap: 10px; }
-  /* Chips are light extras, so they sit flat */
+  /* Chips: small quiet cards, coloured icon */
   .chip-option {
     display: inline-flex; align-items: center; gap: 8px;
     min-height: 44px; padding: 8px 16px;
     border-radius: var(--radius-pill);
-    border: 2px solid var(--key-edge);
-    background: transparent;
+    background: var(--key-face);
     font-size: var(--size-16);
     font-weight: var(--weight-bold);
   }
   .chip-option:has(svg) { padding-left: 12px; }
   .chip-option svg { width: 20px; height: 20px; color: var(--icon); }
-  .chip-option[aria-pressed="true"] { border-color: var(--choice); background: var(--choice-surface); }
+  .chip-option[aria-pressed="true"] { background: var(--choice-surface); box-shadow: inset 0 0 0 2px var(--choice); }
 
   .sub-label { margin: var(--space-6) 0 var(--space-3); color: var(--label); font-size: var(--size-13); font-weight: var(--weight-heavy); }
 
   /* Two-way switch, e.g. cm / feet & inches */
   .segmented {
     display: flex; gap: 4px; padding: 4px; margin-bottom: 16px;
-    border-radius: var(--radius-pill); background: var(--key-face); border: 2px solid var(--key-edge);
+    border-radius: var(--radius-pill); background: var(--key-face);
   }
   .segmented button {
     flex: 1; height: 38px; border-radius: var(--radius-pill);
@@ -100,7 +96,6 @@
     height: calc(var(--wheel-row) * 5);
     border-radius: var(--radius-lg);
     background: var(--key-face);
-    border: 2px solid var(--key-edge);
     overflow: hidden;
   }
   .wheel__band {
@@ -140,17 +135,17 @@
   .stepper { display: flex; align-items: center; gap: var(--space-3); }
   .stepper__btn {
     flex: none; width: 58px; height: 58px; border-radius: var(--radius-md);
-    background: var(--key-face); border: 2px solid var(--key-edge); border-bottom: var(--lip-sm) solid var(--key-edge);
+    background: var(--key-face);
     font-size: 28px; font-weight: var(--weight-black); line-height: 1;
   }
-  .stepper__btn:active { transform: translateY(3px); }
+  .stepper__btn:active { transform: scale(.95); }
   .stepper__value {
     flex: 1; height: 64px;
     display: flex; align-items: baseline; justify-content: center; gap: 6px;
     padding-top: 10px;
     border-radius: var(--radius-md);
-    border: 2px solid var(--choice);
-    background: var(--key-face);
+    background: var(--choice-surface);
+    box-shadow: inset 0 0 0 2px var(--choice);
   }
   /* Number and its invisible copy share one grid cell; the copy sets the width */
   .stepper__fit { display: inline-grid; }
@@ -169,7 +164,7 @@
   .stepper__unit { color: var(--text-muted); font-size: var(--size-16); font-weight: var(--weight-regular); }
 
   /* Plan upload */
-  .upload-found { margin-top: 18px; padding: 16px 18px; border-radius: var(--radius-md); border: 2.5px solid var(--choice); background: var(--choice-surface); }
+  .upload-found { margin-top: 18px; padding: 16px 18px; border-radius: var(--radius-md); background: var(--choice-surface); box-shadow: inset 0 0 0 2px var(--choice); }
   .upload-found__title { font-size: var(--size-17); font-weight: var(--weight-black); }
   .upload-found ul { margin: 8px 0 0; padding-left: 18px; color: var(--text); font-size: var(--size-15); font-weight: var(--weight-bold); line-height: 1.6; }
   .upload-reading { display: flex; align-items: center; gap: 12px; margin-top: 18px; color: var(--text-muted); font-size: var(--size-15); font-weight: var(--weight-heavy); }
@@ -180,7 +175,7 @@
   .text-box {
     width: 100%; min-height: 140px; padding: 16px 18px;
     border-radius: var(--radius-md);
-    border: 2px solid var(--key-edge);
+    border: 2px solid transparent;
     background: var(--key-face);
     color: var(--text);
     font: inherit; font-size: var(--size-16); font-weight: var(--weight-regular); line-height: 1.45;
@@ -203,18 +198,14 @@
   /* Live number: what you burn, worked out from answers so far */
   .burn {
     display: flex; align-items: center; gap: 14px;
-    margin-top: var(--space-5); padding: 14px 16px 14px 12px;
+    margin-top: var(--space-5); padding: 14px 18px;
     border-radius: var(--radius-md);
     background: var(--key-face);
   }
-  .burn__icon {
-    flex: none; display: grid; place-items: center;
-    width: 44px; height: 44px; border-radius: var(--radius-sm);
-    background: var(--live-tint); color: var(--live);
-  }
-  .burn__icon svg { width: 26px; height: 26px; }
+  .burn__icon { flex: none; display: grid; place-items: center; width: 32px; height: 32px; color: var(--icon-1); }
+  .burn__icon svg { width: 32px; height: 32px; }
   .burn__text { flex: 1; min-width: 0; }
-  .burn__label { color: var(--text-muted); font-size: var(--size-13); font-weight: var(--weight-regular); }
+  .burn__label { color: var(--hint); font-size: var(--size-13); font-weight: var(--weight-regular); }
   .burn__line { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
   .burn__num { font-size: var(--size-30); font-weight: var(--weight-black); line-height: 1.1; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; }
   .burn__unit { color: var(--text-muted); font-size: var(--size-16); font-weight: var(--weight-regular); }
@@ -232,9 +223,9 @@
     --button-bg: var(--surface);
     --button-lip: var(--surface-lip);
     --button-text: var(--text);
+    --button-edge: rgb(255 255 255 / 0.06);
     border: 2.5px solid var(--surface-border);
   }
-  .button--quiet::before { display: none; }
 
   .text-button {
     display: block; width: 100%; padding: 14px 0 4px;

@@ -34,9 +34,9 @@
   .button:disabled {
     --button-bg: var(--track);
     --button-lip: var(--surface-lip);
+    --button-edge: transparent;
     --button-text: var(--text-muted);
   }
-  .button:disabled::before { display: none; }
   .button:disabled:active { transform: none; box-shadow: 0 var(--button-depth) 0 var(--button-lip); }
 
   .text-link { padding: 0; color: var(--label); font-weight: var(--weight-heavy); white-space: nowrap; }

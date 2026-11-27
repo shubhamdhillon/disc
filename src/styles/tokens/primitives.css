@@ -6,18 +6,34 @@
 */
 @layer tokens {
   :root {
-    /* Lime: the "go forward" colour */
+    /* Lime: the Disc logo */
     --lime-300: #E6F87A;
     --lime-400: #D9F53D;
     --lime-600: #A7C319;
     --lime-900: #1E3300;
 
-    /* Periwinkle: the "your choice" colour */
+    /* Periwinkle: older choice colour, kept for reference */
     --peri-300: #B3BFFF;
     --peri-400: #8EA0FF;
     --peri-600: #5468D8;
     --peri-800: #262E52;
     --peri-900: #101018;
+
+    /* Purple: the "go forward" colour (buttons, progress, choice) */
+    --purple-200: #B7A6FF;
+    --purple-300: #A99BFF;
+    --purple-350: #8E7BFF;
+    --purple-400: #7C66F8;
+    --purple-500: #6550EE;
+    --purple-700: #4A33C7;
+    --purple-950: #24223A;
+
+    /* Answer icons: five warm and cool colours, used in order */
+    --hue-coral: #FF9473;
+    --hue-lavender: #B7A6FF;
+    --hue-sky: #7CC8FF;
+    --hue-pink: #FF85AB;
+    --hue-amber: #FFC062;
 
     /* Coral: something went wrong */
     --coral-200: #FFB3AA;
@@ -42,6 +58,7 @@
     /* Neutrals for text */
     --cream-50: #F4F1EA;
     --grey-400: #A19FAB;
+    --grey-500: #8C8996;
     --sage-400: #9DB0A3;
 
     /* Type */

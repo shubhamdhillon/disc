@@ -23,7 +23,7 @@
   .desk__mark {
     width: 56px; height: 56px; display: grid; place-items: center;
     font-family: var(--font-logo); font-size: 40px; line-height: 1;
-    color: var(--action); transform: rotate(90deg);
+    color: var(--brand); transform: rotate(90deg);
   }
   .desk__title { margin-top: 18px; font-size: var(--size-28); font-weight: var(--weight-black); line-height: 1.15; }
   .desk__text { margin-top: 10px; color: var(--text-muted); font-size: var(--size-15); font-weight: var(--weight-bold); line-height: 1.5; }

@@ -1,11 +1,9 @@
 @layer components {
   .option-tile {
     --tile-bg: var(--key-face);
-    --tile-border: var(--key-edge);
-    --tile-lip: var(--key-edge);
+    --tile-ring: transparent;
     --tile-height: 176px;
     --tile-radius: var(--radius-lg);
-    --tile-depth: var(--lip-sm);
 
     position: relative;
     display: flex;
@@ -15,30 +13,22 @@
     gap: var(--space-3);
     height: var(--tile-height);
     border-radius: var(--tile-radius);
-    border: 2px solid var(--tile-border);
-    border-bottom-width: var(--tile-depth);
-    border-bottom-color: var(--tile-lip);
     background: var(--tile-bg);
+    box-shadow: inset 0 0 0 2px var(--tile-ring);
     font-size: var(--size-18);
     font-weight: var(--weight-bold);
     transition: transform var(--dur-press) var(--ease-press);
   }
 
-  .option-tile:active { transform: translateY(2px); }
+  .option-tile:active { transform: scale(.98); }
 
   .option-tile[aria-pressed="true"] {
     --tile-bg: var(--choice-surface);
-    --tile-border: var(--choice);
-    --tile-lip: var(--choice-lip);
+    --tile-ring: var(--choice);
   }
 
-  .option-tile__art {
-    display: grid; place-items: center;
-    width: 52px; height: 52px; border-radius: 14px;
-    background: var(--icon-tile); color: var(--icon);
-  }
-  .option-tile__art svg { width: 30px; height: 30px; }
-  .option-tile[aria-pressed="true"] .option-tile__art { background: var(--icon-tile-on); }
+  .option-tile__art { display: grid; place-items: center; width: 40px; height: 40px; color: var(--icon); }
+  .option-tile__art svg { width: 40px; height: 40px; }
   /* When the answer is a number (water: 250 ml), the number is the picture */
   .option-tile__big { font-size: var(--size-30); font-weight: var(--weight-black); letter-spacing: -0.015em; line-height: 1; }
   .option-tile__big small { margin-left: 3px; color: var(--text-muted); font-size: var(--size-16); font-weight: var(--weight-regular); letter-spacing: 0; }
@@ -52,7 +42,7 @@
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: var(--choice);
+    background: var(--choice-fill);
     color: var(--on-choice);
     font-size: var(--size-14);
     font-weight: var(--weight-black);

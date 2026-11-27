@@ -5,7 +5,7 @@
 */
 @layer components {
   .splash {
-    --splash-logo: var(--action);
+    --splash-logo: var(--brand);
     --splash-tag: var(--label);
 
     position: absolute;

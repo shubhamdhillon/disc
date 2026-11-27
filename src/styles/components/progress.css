@@ -27,12 +27,4 @@
     transition: width var(--dur-fill) var(--ease-fill);
   }
 
-  .progress__fill::after {
-    content: "";
-    position: absolute;
-    inset: 2px 5px auto;
-    height: 2px;
-    border-radius: var(--radius-pill);
-    background: rgb(255 255 255 / 0.5);
-  }
 }

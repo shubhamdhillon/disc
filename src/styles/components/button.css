@@ -5,8 +5,9 @@
 */
 @layer components {
   .button {
-    --button-bg: var(--action);
+    --button-bg: linear-gradient(var(--action), var(--action-low));
     --button-lip: var(--action-lip);
+    --button-edge: var(--action-edge);
     --button-text: var(--on-action);
     --button-height: 58px;
     --button-radius: var(--radius-md);
@@ -21,26 +22,16 @@
     border-radius: var(--button-radius);
     background: var(--button-bg);
     color: var(--button-text);
-    box-shadow: 0 var(--button-depth) 0 var(--button-lip);
+    box-shadow: inset 0 1.5px 0 var(--button-edge), 0 var(--button-depth) 0 var(--button-lip);
     font-size: var(--size-18);
     font-weight: var(--weight-heavy);
     transition: transform var(--dur-press) var(--ease-press),
                 box-shadow var(--dur-press) var(--ease-press);
   }
 
-  /* The light streak along the top */
-  .button::before {
-    content: "";
-    position: absolute;
-    inset: 6px 16px auto;
-    height: 5px;
-    border-radius: var(--radius-pill);
-    background: var(--sheen);
-  }
-
   /* Pressed: the face drops onto its edge */
   .button:active {
     transform: translateY(var(--button-depth));
-    box-shadow: 0 0 0 var(--button-lip);
+    box-shadow: inset 0 1.5px 0 var(--button-edge), 0 0 0 var(--button-lip);
   }
 }
